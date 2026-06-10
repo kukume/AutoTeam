@@ -29,6 +29,7 @@ from pathlib import Path
 from autoteam.account_ops import delete_managed_account, fetch_team_state
 from autoteam.accounts import (
     STATUS_ACTIVE,
+    STATUS_ADD_PHONE,
     STATUS_AUTH_PENDING,
     STATUS_EXHAUSTED,
     STATUS_PENDING,
@@ -216,7 +217,7 @@ def _count_pool_active_accounts(accounts: list[dict] | None = None, *, require_a
 
 def _count_local_team_seat_accounts(accounts: list[dict] | None = None) -> int:
     accounts = accounts if accounts is not None else load_accounts()
-    seat_statuses = {STATUS_ACTIVE, STATUS_EXHAUSTED, STATUS_AUTH_PENDING}
+    seat_statuses = {STATUS_ACTIVE, STATUS_EXHAUSTED, STATUS_AUTH_PENDING, STATUS_ADD_PHONE}
     return sum(
         1 for acc in accounts if not _is_main_account_email(acc.get("email")) and acc.get("status") in seat_statuses
     )
@@ -375,6 +376,9 @@ def _auth_repair_skip_reason(acc: dict | None, *, force: bool = False, now: floa
     if force or not acc:
         return None
 
+    if acc.get("status") == STATUS_ADD_PHONE:
+        return "需要手机号验证，等待人工处理"
+
     if acc.get("auth_retry_paused"):
         label = _auth_repair_error_label(acc.get("auth_last_error"))
         return f"已暂停自动修复（{label}）"
@@ -403,33 +407,48 @@ def _record_auth_repair_failure(
     error_detail = error_detail or _auth_repair_error_label(error_type)
     retry_delays = _auth_repair_retry_delays()
     should_release_team_seat = bool(release_team_seat)
+    force_add_phone_status = False
 
-    if error_type == "add_phone" and _auth_repair_retry_add_phone_enabled():
-        prev_count = int(acc.get("auth_retry_count") or 0) if acc.get("auth_last_error") == "add_phone" else 0
-        next_count = prev_count + 1
-        max_retries = _auth_repair_add_phone_max_retries()
-        add_phone_delays = _auth_repair_add_phone_retry_delays(max_retries)
+    if error_type == "add_phone":
+        if _auth_repair_retry_add_phone_enabled():
+            prev_count = int(acc.get("auth_retry_count") or 0) if acc.get("auth_last_error") == "add_phone" else 0
+            next_count = prev_count + 1
+            max_retries = _auth_repair_add_phone_max_retries()
+            add_phone_delays = _auth_repair_add_phone_retry_delays(max_retries)
 
-        if next_count > max_retries:
+            if next_count <= max_retries:
+                state = {
+                    "auth_retry_count": next_count,
+                    "auth_last_error": error_type,
+                    "auth_last_error_detail": error_detail,
+                    "auth_last_failed_at": now,
+                    "auth_retry_after": now + add_phone_delays[next_count - 1],
+                    "auth_retry_paused": False,
+                }
+                should_release_team_seat = False
+            else:
+                state = {
+                    "auth_retry_count": next_count,
+                    "auth_last_error": error_type,
+                    "auth_last_error_detail": error_detail,
+                    "auth_last_failed_at": now,
+                    "auth_retry_after": None,
+                    "auth_retry_paused": False,
+                }
+                should_release_team_seat = False
+                force_add_phone_status = True
+        else:
             state = {
-                "auth_retry_count": next_count,
+                "auth_retry_count": int(acc.get("auth_retry_count") or 0),
                 "auth_last_error": error_type,
                 "auth_last_error_detail": error_detail,
                 "auth_last_failed_at": now,
                 "auth_retry_after": None,
-                "auth_retry_paused": True,
-            }
-            should_release_team_seat = True
-        else:
-            state = {
-                "auth_retry_count": next_count,
-                "auth_last_error": error_type,
-                "auth_last_error_detail": error_detail,
-                "auth_last_failed_at": now,
-                "auth_retry_after": now + add_phone_delays[next_count - 1],
                 "auth_retry_paused": False,
             }
-    elif error_type in AUTH_REPAIR_HARD_FAILURE_TYPES or error_type == "add_phone":
+            should_release_team_seat = False
+            force_add_phone_status = True
+    elif error_type in AUTH_REPAIR_HARD_FAILURE_TYPES:
         retry_count = max(int(acc.get("auth_retry_count") or 0), len(retry_delays))
         state = {
             "auth_retry_count": retry_count,
@@ -456,7 +475,7 @@ def _record_auth_repair_failure(
     update_account(email, **state)
 
     is_team_member = _is_email_in_team(email)
-    if not is_team_member and acc.get("status") in (STATUS_ACTIVE, STATUS_EXHAUSTED, STATUS_AUTH_PENDING):
+    if not is_team_member and acc.get("status") in (STATUS_ACTIVE, STATUS_EXHAUSTED, STATUS_AUTH_PENDING, STATUS_ADD_PHONE):
         is_team_member = True
 
     release_attempted = False
@@ -467,7 +486,10 @@ def _record_auth_repair_failure(
         remove_status = _release_auth_repair_team_seat(email, chatgpt_api=chatgpt_api)
         seat_released = remove_status in ("removed", "already_absent")
 
-    final_status = STATUS_STANDBY if seat_released or not is_team_member else STATUS_AUTH_PENDING
+    if force_add_phone_status:
+        final_status = STATUS_ADD_PHONE
+    else:
+        final_status = STATUS_STANDBY if seat_released or not is_team_member else STATUS_AUTH_PENDING
     update_account(email, status=final_status)
 
     return {
@@ -641,6 +663,13 @@ def sync_account_states(chatgpt_api=None):
         if in_team:
             if acc["status"] == STATUS_EXHAUSTED:
                 continue
+            if acc["status"] == STATUS_ADD_PHONE:
+                if not _has_auth_file(acc):
+                    continue
+                # 已有认证文件（手动 OAuth 登录后），恢复正常状态
+                acc["status"] = STATUS_ACTIVE
+                changed = True
+                continue
             desired_status = STATUS_ACTIVE if _has_auth_file(acc) else STATUS_AUTH_PENDING
             if is_account_disabled(acc):
                 if acc["status"] in (STATUS_ACTIVE, STATUS_AUTH_PENDING):
@@ -761,6 +790,7 @@ def _print_status_table(accounts, quota_cache=None):
 
     STATUS_STYLE = {
         STATUS_ACTIVE: ("bold green", "● active"),
+        STATUS_ADD_PHONE: ("bold yellow", "⚠ add_phone"),
         STATUS_AUTH_PENDING: ("bold cyan", "◐ auth pending"),
         STATUS_EXHAUSTED: ("bold red", "✗ used up"),
         STATUS_STANDBY: ("yellow", "○ standby"),
@@ -812,12 +842,14 @@ def _print_status_table(accounts, quota_cache=None):
 
     # 统计摘要
     active = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_ACTIVE)
+    add_phone = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_ADD_PHONE)
     auth_pending = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_AUTH_PENDING)
     standby = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_STANDBY)
     exhausted = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_EXHAUSTED)
     disabled = sum(1 for a in accounts if not _is_main_account_email(a.get("email")) and is_account_disabled(a))
     console.print(
         f"  [green]● 活跃 {active}[/]  "
+        f"[yellow]⚠ 需手机验证 {add_phone}[/]  "
         f"[cyan]◐ 认证待修复 {auth_pending}[/]  "
         f"[yellow]○ 待命 {standby}[/]  "
         f"[red]✗ 用完 {exhausted}[/]  "

@@ -2332,6 +2332,7 @@ def get_status():
     """获取所有账号状态 + active 账号实时额度"""
     from autoteam.accounts import (
         STATUS_ACTIVE,
+        STATUS_ADD_PHONE,
         STATUS_AUTH_PENDING,
         STATUS_EXHAUSTED,
         STATUS_PENDING,
@@ -2372,6 +2373,7 @@ def get_status():
 
     summary = {
         "active": sum(1 for a in sanitized_accounts if a["status"] == STATUS_ACTIVE),
+        "add_phone": sum(1 for a in sanitized_accounts if a["status"] == STATUS_ADD_PHONE),
         "auth_pending": sum(1 for a in sanitized_accounts if a["status"] == STATUS_AUTH_PENDING),
         "standby": sum(1 for a in sanitized_accounts if a["status"] == STATUS_STANDBY),
         "exhausted": sum(1 for a in sanitized_accounts if a["status"] == STATUS_EXHAUSTED),
