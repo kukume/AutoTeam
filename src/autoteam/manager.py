@@ -24,7 +24,6 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 from autoteam.account_ops import delete_managed_account, fetch_team_state
@@ -665,23 +664,6 @@ def sync_account_states(chatgpt_api=None):
             if acc["status"] == STATUS_EXHAUSTED:
                 continue
             if acc["status"] == STATUS_ADD_PHONE:
-                if not _has_auth_file(acc):
-                    continue
-                # 只有在 token 未过期时才自动升级（手动 OAuth 后 token 是新的）
-                try:
-                    auth_data = json.loads(read_text(Path(acc["auth_file"])))
-                    expired_str = auth_data.get("expired", "")
-                    if expired_str:
-                        expired_dt = datetime.strptime(expired_str, "%Y-%m-%dT%H:%M:%SZ")
-                        if expired_dt.timestamp() <= time.time():
-                            continue  # token 已过期，保持 add_phone
-                    access_token = auth_data.get("access_token", "")
-                    if not access_token:
-                        continue  # 无 token，保持 add_phone
-                except Exception:
-                    continue
-                acc["status"] = STATUS_ACTIVE
-                changed = True
                 continue
             desired_status = STATUS_ACTIVE if _has_auth_file(acc) else STATUS_AUTH_PENDING
             if is_account_disabled(acc):
