@@ -22,20 +22,6 @@
         {{ message }}
       </div>
 
-      <div
-        v-if="manualAccountStatus?.status === 'completed' && manualAccountStatus?.account"
-        class="mb-4 px-4 py-3 rounded-lg text-sm border bg-green-500/10 text-green-400 border-green-500/20"
-      >
-        {{ manualAccountStatus.message || `已添加账号 ${manualAccountStatus.account.email}` }}
-      </div>
-
-      <div
-        v-else-if="manualAccountStatus?.status === 'error' && manualAccountStatus?.error"
-        class="mb-4 px-4 py-3 rounded-lg text-sm border bg-red-500/10 text-red-400 border-red-500/20"
-      >
-        {{ manualAccountStatus.error }}
-      </div>
-
       <div v-if="!manualAccountBusy" class="flex flex-wrap gap-3">
         <button
           @click="startManualAccount"
@@ -187,7 +173,13 @@ async function submitManualCallback() {
   manualSubmittingHint.value = '正在提交回调 URL 并交换 token...'
   try {
     const result = await api.submitManualAccountCallback(manualCallbackUrl.value)
-    setMessage(result.status === 'completed' ? (result.message || '账号已添加') : '回调 URL 已提交')
+    if (result.status === 'completed') {
+      setMessage(result.message || '账号已添加')
+    } else if (result.status === 'error') {
+      setMessage(result.error || '操作失败', 'error')
+    } else {
+      setMessage('回调 URL 已提交')
+    }
     emit('progress')
   } catch (e) {
     setMessage(e.message, 'error')

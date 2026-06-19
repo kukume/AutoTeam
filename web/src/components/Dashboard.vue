@@ -254,7 +254,7 @@ const cards = computed(() => {
   const s = props.status.summary
   return [
     { label: '活跃', value: s.active, color: 'text-green-400' },
-    { label: '待修复', value: s.auth_pending || 0, color: 'text-cyan-400' },
+    { label: '待修复', value: (s.auth_pending || 0) + (s.add_phone || 0), color: 'text-cyan-400' },
     { label: '待命', value: s.standby, color: 'text-yellow-400' },
     { label: '额度用完', value: s.exhausted, color: 'text-red-400' },
     { label: '禁用', value: s.disabled || 0, color: 'text-fuchsia-400' },
@@ -266,6 +266,7 @@ function statusClass(s) {
   return {
     active: 'bg-green-500/10 text-green-400',
     auth_pending: 'bg-cyan-500/10 text-cyan-400',
+    add_phone: 'bg-amber-500/10 text-amber-400',
     exhausted: 'bg-red-500/10 text-red-400',
     standby: 'bg-yellow-500/10 text-yellow-400',
     disabled: 'bg-fuchsia-500/10 text-fuchsia-400',
@@ -277,6 +278,7 @@ function dotClass(s) {
   return {
     active: 'bg-green-400',
     auth_pending: 'bg-cyan-400',
+    add_phone: 'bg-amber-400',
     exhausted: 'bg-red-400',
     standby: 'bg-yellow-400',
     disabled: 'bg-fuchsia-400',
@@ -288,6 +290,7 @@ function statusLabel(s) {
   return {
     active: 'Active',
     auth_pending: 'Auth pending',
+    add_phone: 'AddPhone',
     exhausted: 'Used up',
     standby: 'Standby',
     disabled: 'Disabled',
