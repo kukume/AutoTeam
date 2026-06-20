@@ -77,7 +77,7 @@ def _classify_oauth_failure(url, body_excerpt=""):
     url = (url or "").lower()
     body = (body_excerpt or "").lower()
 
-    if "add-phone" in url or "phone-verification" in url:
+    if "add-phone" in url or "phone-verification" in url or "phone-otp" in url:
         return "add_phone", "需要手机号验证", False
     if "choose-an-account" in url:
         return "choose_account_selection", "卡在账号选择页", True
