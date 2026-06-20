@@ -266,7 +266,7 @@ function statusClass(s) {
   return {
     active: 'bg-green-500/10 text-green-400',
     auth_pending: 'bg-cyan-500/10 text-cyan-400',
-    add_phone: 'bg-amber-500/10 text-amber-400',
+    add_phone: 'bg-orange-500/10 text-orange-400',
     exhausted: 'bg-red-500/10 text-red-400',
     standby: 'bg-yellow-500/10 text-yellow-400',
     disabled: 'bg-fuchsia-500/10 text-fuchsia-400',
@@ -278,7 +278,7 @@ function dotClass(s) {
   return {
     active: 'bg-green-400',
     auth_pending: 'bg-cyan-400',
-    add_phone: 'bg-amber-400',
+    add_phone: 'bg-orange-400',
     exhausted: 'bg-red-400',
     standby: 'bg-yellow-400',
     disabled: 'bg-fuchsia-400',
