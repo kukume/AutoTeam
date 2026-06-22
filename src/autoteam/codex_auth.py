@@ -824,15 +824,15 @@ def _select_oauth_account(page, email: str) -> dict:
     if not preferred_email:
         return {"selected": False}
 
-    # 第一处点击（主要路径）
     for text, loc in _choose_account_label_candidates(page):
         lowered = text.strip().lower()
         if preferred_email not in lowered:
             continue
+        if not _click_workspace_locator(loc):
+            continue
+        logger.info("[Codex] 选择 OAuth 账号: %s", text)
+        time.sleep(2)
 
-        clicked = _click_workspace_locator(loc)
-
-        # 点击后立即检测阻塞页
         blocking = _detect_early_oauth_block(page)
         if blocking:
             logger.warning(
@@ -843,13 +843,6 @@ def _select_oauth_account(page, email: str) -> dict:
             _screenshot(page, "codex_blocked_after_click_1.png")
             return {"blocked": True, "failure": blocking}
 
-        if not clicked:
-            continue
-
-        logger.info("[Codex] 选择 OAuth 账号: %s", text)
-        time.sleep(2)
-
-        # 第三处点击：确认 Continue / Allow
         try:
             confirm = page.locator(
                 'button:has-text("Continue"), button:has-text("继续"), button:has-text("Allow")'
@@ -857,25 +850,12 @@ def _select_oauth_account(page, email: str) -> dict:
             if confirm.is_visible(timeout=800):
                 confirm.click()
                 logger.info("[Codex] 已确认 OAuth 账号选择")
-
-                # 点击 Confirm 之后再次检测阻塞页
-                blocking = _detect_early_oauth_block(page)
-                if blocking:
-                    logger.warning(
-                        "[Codex] 提前识别到 OAuth 阻塞页 (after confirm click): %s | URL=%s",
-                        blocking["error_detail"],
-                        blocking["current_url"],
-                    )
-                    _screenshot(page, "codex_blocked_after_confirm.png")
-                    return {"blocked": True, "failure": blocking}
-
                 time.sleep(3)
         except Exception:
             pass
 
         return {"selected": True}
 
-    # 第二处点击（兜底路径）
     for selector in (
         f'text="{email}"',
         f"text=/{re.escape(email)}/i",
@@ -884,10 +864,11 @@ def _select_oauth_account(page, email: str) -> dict:
             loc = page.locator(selector).first
             if not loc.is_visible(timeout=500):
                 continue
+            if not _click_workspace_locator(loc):
+                continue
+            logger.info("[Codex] 选择 OAuth 账号: %s", email)
+            time.sleep(2)
 
-            clicked = _click_workspace_locator(loc)
-
-            # 点击后立即检测阻塞页
             blocking = _detect_early_oauth_block(page)
             if blocking:
                 logger.warning(
@@ -898,11 +879,6 @@ def _select_oauth_account(page, email: str) -> dict:
                 _screenshot(page, "codex_blocked_after_click_2.png")
                 return {"blocked": True, "failure": blocking}
 
-            if not clicked:
-                continue
-
-            logger.info("[Codex] 选择 OAuth 账号: %s", email)
-            time.sleep(2)
             return {"selected": True}
         except Exception:
             continue
