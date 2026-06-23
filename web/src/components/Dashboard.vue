@@ -211,10 +211,14 @@
     </div>
     <div class="bg-gray-900 border border-gray-800 rounded-xl h-64 animate-pulse"></div>
   </div>
+
+  <!-- 自定义确认弹窗 -->
+  <ConfirmDialog ref="confirmDialog" />
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { api } from '../api.js'
 
 const props = defineProps({
@@ -227,6 +231,7 @@ const props = defineProps({
   },
 })
 const emit = defineEmits(['refresh', 'task-started'])
+const confirmDialog = ref(null)
 
 const actionEmail = ref('')
 const actionType = ref('')
@@ -424,9 +429,12 @@ async function syncAccounts() {
 async function resetQuotaRecovery() {
   if (resetDisabled.value) return
 
-  const ok = window.confirm(
-    '确认清空所有托管非主号账号的本地额度恢复记录吗？\n\n这会清空 last_quota / quota_resets_at / quota_exhausted_at，并把 exhausted 账号恢复为可检查状态。\n不会自动执行轮转或检查。'
-  )
+  const ok = await confirmDialog.value.show({
+    title: '重置额度恢复记录',
+    message: '确认清空所有托管非主号账号的本地额度恢复记录吗？\n\n这会清空 last_quota / quota_resets_at / quota_exhausted_at，并把 exhausted 账号恢复为可检查状态。\n不会自动执行轮转或检查。',
+    confirmText: '确认重置',
+    confirmType: 'warning'
+  })
   if (!ok) return
 
   resetting.value = true
@@ -469,7 +477,12 @@ async function loginAccount(email) {
 async function kickAccount(email) {
   if (actionDisabled.value) return
 
-  const ok = window.confirm(`确认将 ${email} 移出 Team？\n账号会变为 standby 状态，额度恢复后可重新复用。`)
+  const ok = await confirmDialog.value.show({
+    title: '移出账号',
+    message: `确认将 ${email} 移出 Team？\n账号会变为 standby 状态，额度恢复后可重新复用。`,
+    confirmText: '移出',
+    confirmType: 'warning'
+  })
   if (!ok) return
 
   actionEmail.value = email
@@ -494,11 +507,14 @@ async function toggleAccountDisabled(acc) {
   if (actionDisabled.value) return
 
   const disabling = !acc.disabled
-  const ok = window.confirm(
-    disabling
+  const ok = await confirmDialog.value.show({
+    title: disabling ? '禁用账号' : '启用账号',
+    message: disabling
       ? `确认禁用账号 ${acc.email}？\n禁用后自动巡检、轮转和远端同步都会跳过该账号。`
-      : `确认启用账号 ${acc.email}？\n启用后该账号会重新参与自动巡检、轮转和远端同步。`
-  )
+      : `确认启用账号 ${acc.email}？\n启用后该账号会重新参与自动巡检、轮转和远端同步。`,
+    confirmText: disabling ? '禁用' : '启用',
+    confirmType: disabling ? 'danger' : 'primary'
+  })
   if (!ok) return
 
   actionEmail.value = acc.email
@@ -525,9 +541,12 @@ async function bulkDisableSelected() {
   if (bulkDisableDisabled.value) return
 
   const emails = selectedDisableTargets.value.map(acc => acc.email)
-  const ok = window.confirm(
-    `确认批量禁用这 ${emails.length} 个账号吗？\n禁用后自动巡检、轮转和远端同步都会跳过它们。`
-  )
+  const ok = await confirmDialog.value.show({
+    title: '批量禁用',
+    message: `确认批量禁用这 ${emails.length} 个账号吗？\n禁用后自动巡检、轮转和远端同步都会跳过它们。`,
+    confirmText: '批量禁用',
+    confirmType: 'danger'
+  })
   if (!ok) return
 
   bulkUpdating.value = true
@@ -551,9 +570,12 @@ async function bulkEnableSelected() {
   if (bulkEnableDisabled.value) return
 
   const emails = selectedEnableTargets.value.map(acc => acc.email)
-  const ok = window.confirm(
-    `确认批量启用这 ${emails.length} 个账号吗？\n启用后它们会重新参与自动巡检、轮转和远端同步。`
-  )
+  const ok = await confirmDialog.value.show({
+    title: '批量启用',
+    message: `确认批量启用这 ${emails.length} 个账号吗？\n启用后它们会重新参与自动巡检、轮转和远端同步。`,
+    confirmText: '批量启用',
+    confirmType: 'primary'
+  })
   if (!ok) return
 
   bulkUpdating.value = true
@@ -576,7 +598,12 @@ async function bulkEnableSelected() {
 async function removeAccount(email) {
   if (actionDisabled.value) return
 
-  const ok = window.confirm(`确认删除账号 ${email}？\n这会同时清理本地记录、已配置远端、Team/Invite 和 CloudMail。`)
+  const ok = await confirmDialog.value.show({
+    title: '删除账号',
+    message: `确认删除账号 ${email}？\n这会同时清理本地记录、已配置远端、Team/Invite 和 CloudMail。`,
+    confirmText: '删除',
+    confirmType: 'danger'
+  })
   if (!ok) return
 
   actionEmail.value = email
