@@ -150,12 +150,8 @@ def get_standby_accounts():
             continue
         if a["status"] == STATUS_STANDBY:
             resets_at = a.get("quota_resets_at")
-            if resets_at is None:
-                # 没有恢复时间 = 不是因为额度用完被移出的，随时可复用
-                a["_quota_recovered"] = True
-            else:
-                # 有恢复时间，看是否已过
-                a["_quota_recovered"] = now >= resets_at
+            # 只有 quota_resets_at 有值且已到期才算已恢复
+            a["_quota_recovered"] = bool(resets_at) and now >= resets_at
             standby.append(a)
     # 已恢复的排前面
     standby.sort(key=lambda x: (not x.get("_quota_recovered", False), x.get("quota_exhausted_at") or 0))
