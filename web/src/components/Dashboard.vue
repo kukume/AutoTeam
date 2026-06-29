@@ -105,9 +105,9 @@
                 <button
                   v-if="acc.raw_status === 'phone_otp' && acc.phone_otp_result === 'awaiting_continue'"
                   @click="phoneOtpContinue(acc.email)"
-                  :disabled="actionDisabled || actionEmail === acc.email"
-                  class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20">
-                  {{ actionEmail === acc.email && actionType === 'phone_otp_continue' ? '发送中...' : '发送验证码' }}
+                  :disabled="phoneOtpLoading === `${acc.email}:continue`"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20 disabled:opacity-50">
+                  {{ phoneOtpLoading === `${acc.email}:continue` ? '发送中...' : '发送验证码' }}
                 </button>
                 <template v-if="acc.raw_status === 'phone_otp' && ['awaiting_code', 'invalid'].includes(acc.phone_otp_result)">
                   <input
@@ -119,9 +119,9 @@
                     class="w-20 px-2 py-1.5 text-xs rounded-lg border bg-gray-900 border-gray-700 text-slate-200 focus:border-purple-500 focus:outline-none">
                   <button
                     @click="phoneOtpSubmit(acc.email)"
-                    :disabled="actionDisabled || actionEmail === acc.email"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20">
-                    {{ actionEmail === acc.email && actionType === 'phone_otp_submit' ? '提交中...' : '提交' }}
+                    :disabled="phoneOtpLoading === `${acc.email}:submit`"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20 disabled:opacity-50">
+                    {{ phoneOtpLoading === `${acc.email}:submit` ? '提交中...' : '提交' }}
                   </button>
                   <span v-if="acc.phone_otp_result === 'invalid' && acc.phone_otp_attempts" class="text-xs text-red-400">
                     {{ acc.phone_otp_attempts }}/3
@@ -275,6 +275,7 @@ const messageClass = ref('')
 const selectedEmails = ref([])
 const phoneOtpCode = ref('')
 const phoneOtpEmail = ref('')
+const phoneOtpLoading = ref('')  // 邮箱+操作类型，如 "email:continue"
 const adminReady = computed(() => !!props.adminStatus?.configured)
 const actionDisabled = computed(() => !!props.runningTask || !adminReady.value || bulkUpdating.value)
 const syncDisabled = computed(() => syncing.value || actionDisabled.value)
@@ -292,7 +293,6 @@ const cards = computed(() => {
   return [
     { label: '活跃', value: s.active, color: 'text-green-400' },
     { label: '待修复', value: (s.auth_pending || 0) + (s.add_phone || 0), color: 'text-cyan-400' },
-    { label: '验证码待输入', value: s.phone_otp || 0, color: 'text-purple-400' },
     { label: '待命', value: s.standby, color: 'text-yellow-400' },
     { label: '额度用完', value: s.exhausted, color: 'text-red-400' },
     { label: '禁用', value: s.disabled || 0, color: 'text-fuchsia-400' },
@@ -511,9 +511,8 @@ async function loginAccount(email) {
 }
 
 async function phoneOtpContinue(email) {
-  if (actionDisabled.value) return
-  actionEmail.value = email
-  actionType.value = 'phone_otp_continue'
+  if (phoneOtpLoading.value) return
+  phoneOtpLoading.value = `${email}:continue`
   message.value = ''
   try {
     await api.phoneOtpContinue(email)
@@ -524,14 +523,13 @@ async function phoneOtpContinue(email) {
     message.value = e.message
     messageClass.value = 'bg-red-500/10 text-red-400 border-red-500/20'
   } finally {
-    actionEmail.value = ''
-    actionType.value = ''
+    phoneOtpLoading.value = ''
     setTimeout(() => { message.value = '' }, 8000)
   }
 }
 
 async function phoneOtpSubmit(email) {
-  if (actionDisabled.value) return
+  if (phoneOtpLoading.value) return
   const code = phoneOtpCode.value.trim()
   if (!code) {
     message.value = '验证码不能为空'
@@ -539,8 +537,7 @@ async function phoneOtpSubmit(email) {
     setTimeout(() => { message.value = '' }, 5000)
     return
   }
-  actionEmail.value = email
-  actionType.value = 'phone_otp_submit'
+  phoneOtpLoading.value = `${email}:submit`
   message.value = ''
   try {
     await api.phoneOtpSubmit(email, code)
@@ -552,8 +549,7 @@ async function phoneOtpSubmit(email) {
     message.value = e.message
     messageClass.value = 'bg-red-500/10 text-red-400 border-red-500/20'
   } finally {
-    actionEmail.value = ''
-    actionType.value = ''
+    phoneOtpLoading.value = ''
     setTimeout(() => { message.value = '' }, 8000)
   }
 }

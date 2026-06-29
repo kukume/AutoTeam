@@ -2358,7 +2358,16 @@ def post_account_login(params: LoginAccountParams):
             update_account(email, auth_file=auth_file)
             # 登录成功且是 team plan，自动标记为 active
             if plan_type == "team":
-                update_account(email, status=STATUS_ACTIVE, last_active_at=time.time())
+                update_account(
+                    email,
+                    status=STATUS_ACTIVE,
+                    last_active_at=time.time(),
+                    phone_otp_action=None,
+                    phone_otp_code=None,
+                    phone_otp_attempts=0,
+                    phone_otp_result=None,
+                    phone_otp_expires_at=None,
+                )
                 # 查一下额度并保存快照
                 token = bundle.get("access_token")
                 if token:

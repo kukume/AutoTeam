@@ -668,6 +668,8 @@ def sync_account_states(chatgpt_api=None):
                 continue
             if acc["status"] == STATUS_ADD_PHONE:
                 continue
+            if acc["status"] == STATUS_PHONE_OTP:
+                continue
             desired_status = STATUS_ACTIVE if _has_auth_file(acc) else STATUS_AUTH_PENDING
             if is_account_disabled(acc):
                 if acc["status"] in (STATUS_ACTIVE, STATUS_AUTH_PENDING):
