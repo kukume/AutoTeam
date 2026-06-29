@@ -79,7 +79,9 @@ def _classify_oauth_failure(url, body_excerpt=""):
 
     if "phone-otp" in url:
         return "phone_otp", "需要手机验证码", False
-    if "add-phone" in url or "phone-verification" in url:
+    if "phone-verification" in url:
+        return "phone_otp", "需要手机验证码", False
+    if "add-phone" in url:
         return "add_phone", "需要手机号验证", False
     if "choose-an-account" in url:
         return "choose_account_selection", "卡在账号选择页", True
@@ -485,16 +487,22 @@ def _handle_phone_otp(page, email, *, timeout=600):
 
     now = time.time()
     expire_ts = now + timeout
+
+    # 如果直接落在 phone-verification 页（跳过了 phone-otp 初始页），
+    # 说明已经过了 Continue 步骤，直接进入等待验证码状态
+    _current_url = (getattr(page, "url", "") or "").lower()
+    initial_result = "awaiting_continue" if "phone-otp" in _current_url else "awaiting_code"
+
     update_account(
         email,
         status=STATUS_PHONE_OTP,
         phone_otp_action=None,
         phone_otp_code=None,
         phone_otp_attempts=0,
-        phone_otp_result="awaiting_continue",
+        phone_otp_result=initial_result,
         phone_otp_expires_at=expire_ts,
     )
-    logger.info("[Codex] 检测到 phone-otp 页面，等待前端操作 | email=%s | 超时=%ds", email, timeout)
+    logger.info("[Codex] 检测到 %s 页面，等待前端操作 | email=%s | 超时=%ds", _current_url.split("/")[-1] or "phone", email, timeout)
 
     deadline = now + timeout
     while time.time() < deadline:
@@ -967,6 +975,13 @@ def _select_oauth_account(page, email: str) -> dict:
             _screenshot(page, "codex_blocked_after_click_1.png")
             return {"blocked": True, "failure": blocking}
 
+        # 如果落到 phone-otp / phone-verification 页面，不点 Continue
+        # 交给 consent loop 里的 _handle_phone_otp 处理
+        _cur_url = (getattr(page, "url", "") or "").lower()
+        if "phone-otp" in _cur_url or "phone-verification" in _cur_url:
+            logger.info("[Codex] 账号选择后落在 phone-otp/verification 页面，跳过 Continue 点击")
+            return {"selected": True}
+
         try:
             confirm = page.locator(
                 'button:has-text("Continue"), button:has-text("继续"), button:has-text("Allow")'
@@ -1002,6 +1017,12 @@ def _select_oauth_account(page, email: str) -> dict:
                 )
                 _screenshot(page, "codex_blocked_after_click_2.png")
                 return {"blocked": True, "failure": blocking}
+
+            # 如果落到 phone-otp / phone-verification 页面，不点 Continue
+            _cur_url = (getattr(page, "url", "") or "").lower()
+            if "phone-otp" in _cur_url or "phone-verification" in _cur_url:
+                logger.info("[Codex] 账号选择后落在 phone-otp/verification 页面，跳过 Continue 点击")
+                return {"selected": True}
 
             return {"selected": True}
         except Exception:
@@ -1273,9 +1294,9 @@ def login_codex_via_browser(
                 failure_result = blocking_failure
                 break
 
-            # phone-otp 页面：通过 accounts.json 与前端交互
+            # phone-otp / phone-verification 页面：通过 accounts.json 与前端交互
             _current_url = (getattr(page, "url", "") or "").lower()
-            if "phone-otp" in _current_url:
+            if "phone-otp" in _current_url or "phone-verification" in _current_url:
                 _screenshot(page, f"codex_04_phone_otp_{step + 1}.png")
                 otp_result = _handle_phone_otp(page, email)
                 if otp_result != "passed":
