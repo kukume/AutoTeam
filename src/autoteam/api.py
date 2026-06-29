@@ -2226,6 +2226,65 @@ def post_enable_account(email: str):
     return _toggle_account_disabled(email, False)
 
 
+class PhoneOtpCodeParams(BaseModel):
+    code: str
+
+
+@app.get("/api/accounts/{email}/phone-otp/status")
+def get_phone_otp_status(email: str):
+    """查询账号手机验证码交互状态。"""
+    from autoteam.accounts import find_account, load_accounts
+
+    acc = find_account(load_accounts(), email)
+    if not acc:
+        raise HTTPException(status_code=404, detail="账号不存在")
+    return {
+        "email": email,
+        "status": acc.get("status"),
+        "phone_otp_result": acc.get("phone_otp_result"),
+        "phone_otp_attempts": acc.get("phone_otp_attempts", 0),
+        "phone_otp_expires_at": acc.get("phone_otp_expires_at"),
+    }
+
+
+@app.post("/api/accounts/{email}/phone-otp/continue")
+def post_phone_otp_continue(email: str):
+    """通知浏览器在 phone-otp 页面点击 Continue 按钮，触发发送验证码。"""
+    from autoteam.accounts import find_account, load_accounts, update_account
+
+    acc = find_account(load_accounts(), email)
+    if not acc:
+        raise HTTPException(status_code=404, detail="账号不存在")
+    if acc.get("status") != "phone_otp":
+        raise HTTPException(status_code=400, detail=f"账号当前状态为 {acc.get('status')}，不是 phone_otp")
+    if acc.get("phone_otp_result") not in (None, "awaiting_continue"):
+        raise HTTPException(status_code=400, detail=f"当前不支持 continue 操作（result={acc.get('phone_otp_result')}）")
+
+    update_account(email, phone_otp_action="continue")
+    return {"message": "已通知浏览器点击 Continue", "email": email}
+
+
+@app.post("/api/accounts/{email}/phone-otp/submit")
+def post_phone_otp_submit(email: str, params: PhoneOtpCodeParams):
+    """提交手机验证码，浏览器会填入并点击提交。"""
+    from autoteam.accounts import find_account, load_accounts, update_account
+
+    code = (params.code or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="验证码不能为空")
+
+    acc = find_account(load_accounts(), email)
+    if not acc:
+        raise HTTPException(status_code=404, detail="账号不存在")
+    if acc.get("status") != "phone_otp":
+        raise HTTPException(status_code=400, detail=f"账号当前状态为 {acc.get('status')}，不是 phone_otp")
+    if acc.get("phone_otp_result") not in ("awaiting_code", "invalid"):
+        raise HTTPException(status_code=400, detail=f"当前不支持 submit 操作（result={acc.get('phone_otp_result')}）")
+
+    update_account(email, phone_otp_action="submit", phone_otp_code=code)
+    return {"message": "已提交验证码", "email": email}
+
+
 @app.post("/api/accounts/{email}/kick")
 def post_kick_account(email: str):
     """将账号从 Team 中移出，状态变为 standby"""
@@ -2336,6 +2395,7 @@ def get_status():
         STATUS_AUTH_PENDING,
         STATUS_EXHAUSTED,
         STATUS_PENDING,
+        STATUS_PHONE_OTP,
         STATUS_STANDBY,
         is_account_disabled,
         load_accounts,
@@ -2374,6 +2434,7 @@ def get_status():
     summary = {
         "active": sum(1 for a in sanitized_accounts if a["status"] == STATUS_ACTIVE),
         "add_phone": sum(1 for a in sanitized_accounts if a["status"] == STATUS_ADD_PHONE),
+        "phone_otp": sum(1 for a in sanitized_accounts if a["status"] == STATUS_PHONE_OTP),
         "auth_pending": sum(1 for a in sanitized_accounts if a["status"] == STATUS_AUTH_PENDING),
         "standby": sum(1 for a in sanitized_accounts if a["status"] == STATUS_STANDBY),
         "exhausted": sum(1 for a in sanitized_accounts if a["status"] == STATUS_EXHAUSTED),

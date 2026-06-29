@@ -33,6 +33,7 @@ from autoteam.accounts import (
     STATUS_AUTH_PENDING,
     STATUS_EXHAUSTED,
     STATUS_PENDING,
+    STATUS_PHONE_OTP,
     STATUS_STANDBY,
     add_account,
     find_account,
@@ -378,6 +379,8 @@ def _auth_repair_skip_reason(acc: dict | None, *, force: bool = False, now: floa
 
     if acc.get("status") == STATUS_ADD_PHONE:
         return "需要手机号验证，等待人工处理"
+    if acc.get("status") == STATUS_PHONE_OTP:
+        return "需要手机验证码，等待前端交互"
 
     if acc.get("auth_retry_paused"):
         label = _auth_repair_error_label(acc.get("auth_last_error"))
@@ -786,6 +789,7 @@ def _print_status_table(accounts, quota_cache=None):
     STATUS_STYLE = {
         STATUS_ACTIVE: ("bold green", "● active"),
         STATUS_ADD_PHONE: ("bold yellow", "⚠ add_phone"),
+        STATUS_PHONE_OTP: ("bold magenta", "⚠ phone_otp"),
         STATUS_AUTH_PENDING: ("bold cyan", "◐ auth pending"),
         STATUS_EXHAUSTED: ("bold red", "✗ used up"),
         STATUS_STANDBY: ("yellow", "○ standby"),
@@ -838,6 +842,7 @@ def _print_status_table(accounts, quota_cache=None):
     # 统计摘要
     active = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_ACTIVE)
     add_phone = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_ADD_PHONE)
+    phone_otp = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_PHONE_OTP)
     auth_pending = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_AUTH_PENDING)
     standby = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_STANDBY)
     exhausted = sum(1 for a in accounts if not is_account_disabled(a) and a["status"] == STATUS_EXHAUSTED)
@@ -845,6 +850,7 @@ def _print_status_table(accounts, quota_cache=None):
     console.print(
         f"  [green]● 活跃 {active}[/]  "
         f"[yellow]⚠ 需手机验证 {add_phone}[/]  "
+        f"[magenta]⚠ 验证码待输入 {phone_otp}[/]  "
         f"[cyan]◐ 认证待修复 {auth_pending}[/]  "
         f"[yellow]○ 待命 {standby}[/]  "
         f"[red]✗ 用完 {exhausted}[/]  "

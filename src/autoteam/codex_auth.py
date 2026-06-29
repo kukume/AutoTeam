@@ -77,7 +77,9 @@ def _classify_oauth_failure(url, body_excerpt=""):
     url = (url or "").lower()
     body = (body_excerpt or "").lower()
 
-    if "add-phone" in url or "phone-verification" in url or "phone-otp" in url:
+    if "phone-otp" in url:
+        return "phone_otp", "需要手机验证码", False
+    if "add-phone" in url or "phone-verification" in url:
         return "add_phone", "需要手机号验证", False
     if "choose-an-account" in url:
         return "choose_account_selection", "卡在账号选择页", True
@@ -366,7 +368,7 @@ def _detect_otp_error(page):
     return None
 
 
-def _wait_for_otp_submit_result(page, timeout=12):
+def _wait_for_otp_submit_result(page, timeout=12, url_keyword="email-verification"):
     """
     等待验证码提交结果：
     - accepted: 验证码输入框已消失 / 页面已前进
@@ -377,7 +379,7 @@ def _wait_for_otp_submit_result(page, timeout=12):
 
     while time.time() < deadline:
         current_url = (getattr(page, "url", "") or "").lower()
-        if current_url and "email-verification" not in current_url:
+        if current_url and url_keyword not in current_url:
             return "accepted", None
         err = _detect_otp_error(page)
         if err:
@@ -467,6 +469,128 @@ def _click_otp_submit_button(page) -> bool:
         except Exception:
             continue
     return False
+
+
+def _handle_phone_otp(page, email, *, timeout=600):
+    """检测到 phone-otp 页面时，通过 accounts.json 与前端交互完成手机验证码验证。
+
+    通信字段（accounts.json）:
+      phone_otp_action:    null | "continue" | "submit"
+      phone_otp_code:       验证码字符串（submit 时带）
+      phone_otp_attempts:   已提交次数
+      phone_otp_result:     "awaiting_continue" | "awaiting_code" | "invalid" | "passed" | "max_attempts" | "timeout"
+      phone_otp_expires_at: 超时时间戳
+    """
+    from autoteam.accounts import load_accounts, find_account, update_account, STATUS_PHONE_OTP
+
+    now = time.time()
+    expire_ts = now + timeout
+    update_account(
+        email,
+        status=STATUS_PHONE_OTP,
+        phone_otp_action=None,
+        phone_otp_code=None,
+        phone_otp_attempts=0,
+        phone_otp_result="awaiting_continue",
+        phone_otp_expires_at=expire_ts,
+    )
+    logger.info("[Codex] 检测到 phone-otp 页面，等待前端操作 | email=%s | 超时=%ds", email, timeout)
+
+    deadline = now + timeout
+    while time.time() < deadline:
+        acc = find_account(load_accounts(), email)
+        if not acc:
+            logger.warning("[Codex] phone-otp 等待期间账号消失: %s", email)
+            return "timeout"
+
+        action = acc.get("phone_otp_action")
+
+        if action == "continue":
+            update_account(email, phone_otp_action=None)
+            _screenshot(page, "phone_otp_before_continue.png")
+            try:
+                cont_btn = page.locator(
+                    'button:has-text("Continue"), button:has-text("继续"), '
+                    'button:has-text("Send"), button:has-text("发送")'
+                ).first
+                if cont_btn.is_visible(timeout=3000):
+                    cont_btn.click()
+                    logger.info("[Codex] phone-otp 已点击 Continue 按钮")
+                    time.sleep(5)
+                else:
+                    logger.warning("[Codex] phone-otp Continue 按钮不可见，检查页面状态")
+                # 等待 URL 变成 phone-verification
+                for _ in range(10):
+                    cur_url = (page.url or "").lower()
+                    if "phone-otp" not in cur_url:
+                        break
+                    time.sleep(1)
+                _screenshot(page, "phone_otp_after_continue.png")
+                update_account(email, phone_otp_result="awaiting_code")
+            except Exception as e:
+                logger.warning("[Codex] phone-otp Continue 按钮点击失败: %s", e)
+                _screenshot(page, "phone_otp_continue_error.png")
+                update_account(email, phone_otp_result="awaiting_code")
+
+        elif action == "submit":
+            code = str(acc.get("phone_otp_code") or "").strip()
+            attempts = int(acc.get("phone_otp_attempts") or 0) + 1
+            update_account(email, phone_otp_action=None)
+
+            _screenshot(page, f"phone_otp_submit_{attempts}_before.png")
+
+            if not code:
+                logger.warning("[Codex] phone-otp 提交时验证码为空")
+                update_account(email, phone_otp_result="invalid", phone_otp_attempts=attempts)
+                continue
+
+            try:
+                filled = _fill_otp_code(page, code)
+                if not filled:
+                    logger.warning("[Codex] phone-otp 验证码输入框不可用")
+                    if attempts >= 3:
+                        update_account(email, phone_otp_result="max_attempts", phone_otp_attempts=attempts)
+                        return "max_attempts"
+                    update_account(email, phone_otp_result="invalid", phone_otp_attempts=attempts)
+                    continue
+
+                time.sleep(0.5)
+                _click_otp_submit_button(page)
+                logger.info("[Codex] phone-otp 已提交验证码 (第 %d/3 次): %s", attempts, code)
+
+                submit_status, submit_detail = _wait_for_otp_submit_result(
+                    page, timeout=12, url_keyword="phone-verification"
+                )
+                _screenshot(page, f"phone_otp_submit_{attempts}_after.png")
+
+                if submit_status == "accepted":
+                    logger.info("[Codex] phone-otp 验证码通过！")
+                    update_account(email, phone_otp_result="passed")
+                    return "passed"
+                else:
+                    logger.warning(
+                        "[Codex] phone-otp 验证码无效 (第 %d/3 次): %s",
+                        attempts,
+                        submit_detail or submit_status,
+                    )
+                    if attempts >= 3:
+                        update_account(email, phone_otp_result="max_attempts", phone_otp_attempts=attempts)
+                        return "max_attempts"
+                    update_account(email, phone_otp_result="invalid", phone_otp_attempts=attempts)
+            except Exception as e:
+                logger.warning("[Codex] phone-otp 验证码提交异常: %s", e)
+                _screenshot(page, f"phone_otp_submit_{attempts}_error.png")
+                if attempts >= 3:
+                    update_account(email, phone_otp_result="max_attempts", phone_otp_attempts=attempts)
+                    return "max_attempts"
+                update_account(email, phone_otp_result="invalid", phone_otp_attempts=attempts)
+
+        time.sleep(3)
+
+    # 超时
+    logger.warning("[Codex] phone-otp 等待超时 | email=%s", email)
+    update_account(email, phone_otp_result="timeout")
+    return "timeout"
 
 
 def _poll_mail_verification_code(
@@ -1148,6 +1272,25 @@ def login_codex_via_browser(
                 _screenshot(page, f"codex_04_blocked_{step + 1}.png")
                 failure_result = blocking_failure
                 break
+
+            # phone-otp 页面：通过 accounts.json 与前端交互
+            _current_url = (getattr(page, "url", "") or "").lower()
+            if "phone-otp" in _current_url:
+                _screenshot(page, f"codex_04_phone_otp_{step + 1}.png")
+                otp_result = _handle_phone_otp(page, email)
+                if otp_result != "passed":
+                    failure_result = {
+                        "ok": False,
+                        "bundle": None,
+                        "error_type": "add_phone",
+                        "error_detail": "手机验证码验证超时" if otp_result == "timeout" else "手机验证码错误超过3次",
+                        "retryable": False,
+                        "current_url": page.url,
+                        "body_excerpt": "",
+                    }
+                    break
+                logger.info("[Codex] phone-otp 验证通过，继续后续流程")
+                continue
 
             _screenshot(page, f"codex_04_step{step + 1}_before.png")
 

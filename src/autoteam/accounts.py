@@ -18,6 +18,7 @@ STATUS_STANDBY = "standby"  # 已移出 team，等待额度恢复
 STATUS_PENDING = "pending"  # 已邀请，等待注册完成
 STATUS_AUTH_PENDING = "auth_pending"  # 已在 team 中，但 Codex 认证未就绪
 STATUS_ADD_PHONE = "add_phone"  # 在 team 中，需要手机号验证，等待人工处理
+STATUS_PHONE_OTP = "phone_otp"  # 需要手机验证码，等待前端交互
 
 
 def _normalized_email(value):
