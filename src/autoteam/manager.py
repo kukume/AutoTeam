@@ -1215,6 +1215,12 @@ def cmd_check(force_auth_repair=False, preserve_low_active=False, preserved_low_
                     extra,
                 )
 
+    # auth repair 成功后同步到已启用远端
+    try:
+        sync_to_cpa()
+    except Exception as exc:
+        logger.warning("[检查] 同步 CPA 失败: %s", exc)
+
     return exhausted_list
 
 

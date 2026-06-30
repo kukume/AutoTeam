@@ -1481,7 +1481,8 @@ def login_codex_via_browser(
             _screenshot(page, "codex_05_no_callback.png")
             body_excerpt = _page_excerpt(page)
             logger.warning("[Codex] 未获取到 auth code，当前 URL: %s", page.url)
-            failure_result = _build_oauth_failure_result(page.url, body_excerpt)
+            if not failure_result:
+                failure_result = _build_oauth_failure_result(page.url, body_excerpt)
 
         browser.close()
 
