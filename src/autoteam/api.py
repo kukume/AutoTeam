@@ -25,13 +25,28 @@ app = FastAPI(
     title="AutoTeam API",
     description="ChatGPT Team 账号自动轮转管理 API",
     version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # ---------------------------------------------------------------------------
 # API Key 鉴权中间件
 # ---------------------------------------------------------------------------
 
+import secrets as _secrets_mod
+
+# 首次配置（API_KEY 未设置）时不鉴权；已配置后 setup/save 也需要鉴权
 _AUTH_SKIP_PATHS = {"/api/auth/check", "/api/setup/status", "/api/setup/save"}
+
+
+def _is_auth_path(path: str) -> bool:
+    """startswith /api/ 但不在 skip 列表；且若路径在 skip 列表中，仅当 API_KEY 未配置时才跳过。"""
+    if not path.startswith("/api/"):
+        return False
+    if path in _AUTH_SKIP_PATHS:
+        return bool(API_KEY)
+    return True
 
 
 @app.middleware("http")
@@ -42,11 +57,8 @@ async def auth_middleware(request: Request, call_next):
         logger.warning("[配置] 自动热加载失败: %s", exc)
 
     path = request.url.path
-    # 不鉴权的路径：非 /api 路径、auth/check 端点
-    if not path.startswith("/api/") or path in _AUTH_SKIP_PATHS:
-        return await call_next(request)
     # 未配置 API_KEY 则跳过鉴权
-    if not API_KEY:
+    if not API_KEY or not _is_auth_path(path):
         return await call_next(request)
     # 从 header 或 query param 获取 key
     auth_header = request.headers.get("authorization", "")
@@ -54,7 +66,7 @@ async def auth_middleware(request: Request, call_next):
         token = auth_header[7:]
     else:
         token = request.query_params.get("key", "")
-    if token != API_KEY:
+    if not _secrets_mod.compare_digest(token, API_KEY):
         return JSONResponse(status_code=401, content={"detail": "未授权，请提供有效的 API Key"})
     return await call_next(request)
 
@@ -65,7 +77,7 @@ def check_auth(request: Request):
     if not API_KEY:
         return {"authenticated": True, "auth_required": False}
     auth_header = request.headers.get("authorization", "")
-    if auth_header.startswith("Bearer ") and auth_header[7:] == API_KEY:
+    if auth_header.startswith("Bearer ") and _secrets_mod.compare_digest(auth_header[7:], API_KEY):
         return {"authenticated": True, "auth_required": True}
     return JSONResponse(status_code=401, content={"authenticated": False, "auth_required": True})
 
@@ -3417,8 +3429,12 @@ if DIST_DIR.exists():
     @app.get("/{path:path}")
     def serve_frontend(path: str):
         """兜底路由：serve 前端 SPA"""
-        file = DIST_DIR / path
-        if file.is_file() and ".." not in path:
+        file = (DIST_DIR / path).resolve()
+        try:
+            file.relative_to(DIST_DIR.resolve())
+        except ValueError:
+            return FileResponse(str(DIST_DIR / "index.html"))
+        if file.is_file():
             return FileResponse(str(file))
         return FileResponse(str(DIST_DIR / "index.html"))
 
