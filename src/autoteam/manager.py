@@ -264,51 +264,6 @@ def _auth_repair_retry_delays() -> tuple[int, int, int]:
     return (interval * 2, interval * 4, interval * 6)
 
 
-def _auth_repair_retry_add_phone_enabled() -> bool:
-    from autoteam.config import AUTO_CHECK_RETRY_ADD_PHONE
-
-    enabled = AUTO_CHECK_RETRY_ADD_PHONE
-    try:
-        from autoteam.api import _auto_check_config
-
-        enabled = bool(_auto_check_config.get("retry_add_phone", enabled))
-    except Exception:
-        pass
-
-    return bool(enabled)
-
-
-def _auth_repair_add_phone_max_retries() -> int:
-    from autoteam.config import AUTO_CHECK_ADD_PHONE_MAX_RETRIES
-
-    retries = AUTO_CHECK_ADD_PHONE_MAX_RETRIES
-    try:
-        from autoteam.api import _auto_check_config
-
-        retries = int(_auto_check_config.get("add_phone_max_retries", retries) or retries)
-    except Exception:
-        pass
-
-    return max(1, int(retries))
-
-
-def _auth_repair_add_phone_retry_delays(max_retries: int | None = None) -> tuple[int, ...]:
-    from autoteam.config import AUTO_CHECK_INTERVAL
-
-    interval = AUTO_CHECK_INTERVAL
-    try:
-        from autoteam.api import _auto_check_config
-
-        interval = int(_auto_check_config.get("interval", interval) or interval)
-    except Exception:
-        pass
-
-    retries = _auth_repair_add_phone_max_retries() if max_retries is None else max_retries
-    interval = max(60, int(interval))
-    retries = max(1, int(retries))
-    return tuple(interval * (2**idx) for idx in range(retries))
-
-
 def _auth_repair_error_label(error_type: str | None) -> str:
     mapping = {
         "add_phone": "手机号验证",
@@ -413,44 +368,16 @@ def _record_auth_repair_failure(
     force_add_phone_status = False
 
     if error_type == "add_phone":
-        if _auth_repair_retry_add_phone_enabled():
-            prev_count = int(acc.get("auth_retry_count") or 0) if acc.get("auth_last_error") == "add_phone" else 0
-            next_count = prev_count + 1
-            max_retries = _auth_repair_add_phone_max_retries()
-            add_phone_delays = _auth_repair_add_phone_retry_delays(max_retries)
-
-            if next_count <= max_retries:
-                state = {
-                    "auth_retry_count": next_count,
-                    "auth_last_error": error_type,
-                    "auth_last_error_detail": error_detail,
-                    "auth_last_failed_at": now,
-                    "auth_retry_after": now + add_phone_delays[next_count - 1],
-                    "auth_retry_paused": False,
-                }
-                should_release_team_seat = False
-            else:
-                state = {
-                    "auth_retry_count": next_count,
-                    "auth_last_error": error_type,
-                    "auth_last_error_detail": error_detail,
-                    "auth_last_failed_at": now,
-                    "auth_retry_after": None,
-                    "auth_retry_paused": False,
-                }
-                should_release_team_seat = False
-                force_add_phone_status = True
-        else:
-            state = {
-                "auth_retry_count": int(acc.get("auth_retry_count") or 0),
-                "auth_last_error": error_type,
-                "auth_last_error_detail": error_detail,
-                "auth_last_failed_at": now,
-                "auth_retry_after": None,
-                "auth_retry_paused": False,
-            }
-            should_release_team_seat = False
-            force_add_phone_status = True
+        state = {
+            "auth_retry_count": int(acc.get("auth_retry_count") or 0),
+            "auth_last_error": error_type,
+            "auth_last_error_detail": error_detail,
+            "auth_last_failed_at": now,
+            "auth_retry_after": None,
+            "auth_retry_paused": False,
+        }
+        should_release_team_seat = False
+        force_add_phone_status = True
     elif error_type in AUTH_REPAIR_HARD_FAILURE_TYPES:
         retry_count = max(int(acc.get("auth_retry_count") or 0), len(retry_delays))
         state = {

@@ -178,8 +178,6 @@ _ALL_RUNTIME_ENV_KEYS = [
     "AUTO_CHECK_TARGET_SEATS",
     "AUTO_CHECK_THRESHOLD",
     "AUTO_CHECK_MIN_LOW",
-    "AUTO_CHECK_RETRY_ADD_PHONE",
-    "AUTO_CHECK_ADD_PHONE_MAX_RETRIES",
     "PLAYWRIGHT_PROXY_URL",
     "PLAYWRIGHT_PROXY_SERVER",
     "PLAYWRIGHT_PROXY_USERNAME",
@@ -664,10 +662,8 @@ def _sync_runtime_globals():
 
     try:
         from autoteam.config import (
-            AUTO_CHECK_ADD_PHONE_MAX_RETRIES,
             AUTO_CHECK_INTERVAL,
             AUTO_CHECK_MIN_LOW,
-            AUTO_CHECK_RETRY_ADD_PHONE,
             AUTO_CHECK_TARGET_SEATS,
             AUTO_CHECK_THRESHOLD,
         )
@@ -676,8 +672,6 @@ def _sync_runtime_globals():
         auto_check_config["target_seats"] = AUTO_CHECK_TARGET_SEATS
         auto_check_config["threshold"] = AUTO_CHECK_THRESHOLD
         auto_check_config["min_low"] = AUTO_CHECK_MIN_LOW
-        auto_check_config["retry_add_phone"] = AUTO_CHECK_RETRY_ADD_PHONE
-        auto_check_config["add_phone_max_retries"] = AUTO_CHECK_ADD_PHONE_MAX_RETRIES
         if auto_check_restart is not None:
             auto_check_restart.set()
     except Exception:
@@ -2803,16 +2797,10 @@ def cancel_task(task_id: str):
 # ---------------------------------------------------------------------------
 
 from autoteam.config import (
-    AUTO_CHECK_ADD_PHONE_MAX_RETRIES as _DEFAULT_ADD_PHONE_MAX_RETRIES,
-)
-from autoteam.config import (
     AUTO_CHECK_INTERVAL as _DEFAULT_INTERVAL,
 )
 from autoteam.config import (
     AUTO_CHECK_MIN_LOW as _DEFAULT_MIN_LOW,
-)
-from autoteam.config import (
-    AUTO_CHECK_RETRY_ADD_PHONE as _DEFAULT_RETRY_ADD_PHONE,
 )
 from autoteam.config import (
     AUTO_CHECK_TARGET_SEATS as _DEFAULT_TARGET_SEATS,
@@ -2827,8 +2815,6 @@ _auto_check_config = {
     "target_seats": _DEFAULT_TARGET_SEATS,
     "threshold": _DEFAULT_THRESHOLD,
     "min_low": _DEFAULT_MIN_LOW,
-    "retry_add_phone": _DEFAULT_RETRY_ADD_PHONE,
-    "add_phone_max_retries": _DEFAULT_ADD_PHONE_MAX_RETRIES,
 }
 _auto_check_stop = threading.Event()
 _auto_check_restart = threading.Event()  # 配置变更时通知线程重启
@@ -3327,38 +3313,25 @@ class AutoCheckConfig(BaseModel):
     target_seats: int = 5  # 自动巡检目标 Team seat 数
     threshold: int = 10  # 额度阈值（%）
     min_low: int = 2  # 触发轮转的最少账号数
-    retry_add_phone: bool = True  # 是否自动重试 add_phone
-    add_phone_max_retries: int = 3  # add_phone 最大自动重试次数
 
 
-def _normalized_auto_check_config(cfg: AutoCheckConfig | dict[str, object]) -> dict[str, int | bool]:
+def _normalized_auto_check_config(cfg: AutoCheckConfig | dict[str, object]) -> dict[str, int]:
     if isinstance(cfg, AutoCheckConfig):
         interval = cfg.interval
         target_seats = cfg.target_seats
         threshold = cfg.threshold
         min_low = cfg.min_low
-        retry_add_phone = cfg.retry_add_phone
-        add_phone_max_retries = cfg.add_phone_max_retries
     else:
         interval = cfg.get("interval", _auto_check_config.get("interval", _DEFAULT_INTERVAL))
         target_seats = cfg.get("target_seats", _auto_check_config.get("target_seats", _DEFAULT_TARGET_SEATS))
         threshold = cfg.get("threshold", _auto_check_config.get("threshold", _DEFAULT_THRESHOLD))
         min_low = cfg.get("min_low", _auto_check_config.get("min_low", _DEFAULT_MIN_LOW))
-        retry_add_phone = cfg.get(
-            "retry_add_phone", _auto_check_config.get("retry_add_phone", _DEFAULT_RETRY_ADD_PHONE)
-        )
-        add_phone_max_retries = cfg.get(
-            "add_phone_max_retries",
-            _auto_check_config.get("add_phone_max_retries", _DEFAULT_ADD_PHONE_MAX_RETRIES),
-        )
 
     return {
         "interval": max(60, int(interval)),
         "target_seats": max(1, int(target_seats)),
         "threshold": max(1, min(100, int(threshold))),
         "min_low": max(1, int(min_low)),
-        "retry_add_phone": bool(retry_add_phone),
-        "add_phone_max_retries": max(1, int(add_phone_max_retries)),
     }
 
 

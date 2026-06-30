@@ -370,28 +370,6 @@
             <span class="text-sm text-gray-500 shrink-0">个</span>
           </div>
         </div>
-        <div>
-          <label class="block text-sm text-gray-400 mb-1">手机号验证自动重试</label>
-          <select
-            v-model="form.retry_add_phone"
-            class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-          >
-            <option :value="true">开启</option>
-            <option :value="false">关闭</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm text-gray-400 mb-1">手机号验证最大重试</label>
-          <div class="flex items-center gap-2">
-            <input
-              v-model.number="form.add_phone_max_retries"
-              type="number"
-              min="1"
-              class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-            <span class="text-sm text-gray-500 shrink-0">次</span>
-          </div>
-        </div>
       </div>
 
       <div class="mt-3 flex items-center justify-between gap-3">
@@ -399,7 +377,7 @@
           每 {{ form.interval }} 分钟检查一次，按 Team 总 seat {{ form.target_seats }} 个做自动轮转 / 补位判断；
           {{ form.min_low }} 个以上账号剩余低于 {{ form.threshold }}% 时自动轮转；
           <span v-if="form.target_seats === 2">seat=2 时会对低额度子号启用 best-effort 预切换，若满员无法先加新号则自动回退到先移后补；</span>
-          add_phone {{ form.retry_add_phone ? `开启自动重试（最多 ${form.add_phone_max_retries} 次）` : '保持人工处理' }}
+          add_phone / phone_otp 保持人工处理
         </p>
         <button @click="save" :disabled="saving"
           class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition disabled:opacity-50">
@@ -442,7 +420,7 @@ const props = defineProps({
 
 const emit = defineEmits(['refresh', 'admin-progress'])
 
-const form = ref({ interval: 5, target_seats: 5, threshold: 10, min_low: 2, retry_add_phone: true, add_phone_max_retries: 3 })
+const form = ref({ interval: 5, target_seats: 5, threshold: 10, min_low: 2 })
 const saving = ref(false)
 const saved = ref(false)
 
@@ -530,8 +508,6 @@ async function loadAutoCheckConfig() {
       target_seats: cfg.target_seats ?? 5,
       threshold: cfg.threshold,
       min_low: cfg.min_low,
-      retry_add_phone: cfg.retry_add_phone ?? true,
-      add_phone_max_retries: cfg.add_phone_max_retries ?? 3,
     }
   } catch (e) {
     console.error('加载巡检配置失败:', e)
@@ -749,16 +725,12 @@ async function save() {
       target_seats: form.value.target_seats,
       threshold: form.value.threshold,
       min_low: form.value.min_low,
-      retry_add_phone: !!form.value.retry_add_phone,
-      add_phone_max_retries: form.value.add_phone_max_retries,
     })
     form.value = {
       interval: Math.round(cfg.interval / 60),
       target_seats: cfg.target_seats ?? 5,
       threshold: cfg.threshold,
       min_low: cfg.min_low,
-      retry_add_phone: cfg.retry_add_phone ?? true,
-      add_phone_max_retries: cfg.add_phone_max_retries ?? 3,
     }
     saved.value = true
     setTimeout(() => { saved.value = false }, 3000)
