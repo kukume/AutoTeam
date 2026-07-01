@@ -59,7 +59,7 @@ export const api = {
   getCodexAuth: (email) => request('GET', `/accounts/${encodeURIComponent(email)}/codex-auth`),
   kickAccount: (email) => request('POST', `/accounts/${encodeURIComponent(email)}/kick`),
   getPhoneOtpStatus: (email) => request('GET', `/accounts/${encodeURIComponent(email)}/phone-otp/status`),
-  phoneOtpContinue: (email) => request('POST', `/accounts/${encodeURIComponent(email)}/phone-otp/continue`),
+  phoneOtpContinue: (email, method) => request('POST', `/accounts/${encodeURIComponent(email)}/phone-otp/continue`, { method }),
   phoneOtpSubmit: (email, code) => request('POST', `/accounts/${encodeURIComponent(email)}/phone-otp/submit`, { code }),
   getCpaFiles: () => request('GET', '/cpa/files'),
 

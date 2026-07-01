@@ -2033,6 +2033,10 @@ class PhoneOtpCodeParams(BaseModel):
     code: str
 
 
+class PhoneOtpContinueParams(BaseModel):
+    method: str = "sms"
+
+
 @app.get("/api/accounts/{email}/phone-otp/status")
 def get_phone_otp_status(email: str):
     """查询账号手机验证码交互状态。"""
@@ -2047,11 +2051,13 @@ def get_phone_otp_status(email: str):
         "phone_otp_result": acc.get("phone_otp_result"),
         "phone_otp_attempts": acc.get("phone_otp_attempts", 0),
         "phone_otp_expires_at": acc.get("phone_otp_expires_at"),
+        "phone_otp_phone_number": acc.get("phone_otp_phone_number"),
+        "phone_otp_method": acc.get("phone_otp_method"),
     }
 
 
 @app.post("/api/accounts/{email}/phone-otp/continue")
-def post_phone_otp_continue(email: str):
+def post_phone_otp_continue(email: str, params: PhoneOtpContinueParams):
     """通知浏览器在 phone-otp 页面点击 Continue 按钮，触发发送验证码。"""
     from autoteam.accounts import find_account, load_accounts, update_account
 
@@ -2063,8 +2069,12 @@ def post_phone_otp_continue(email: str):
     if acc.get("phone_otp_result") not in (None, "awaiting_continue"):
         raise HTTPException(status_code=400, detail=f"当前不支持 continue 操作（result={acc.get('phone_otp_result')}）")
 
-    update_account(email, phone_otp_action="continue")
-    return {"message": "已通知浏览器点击 Continue", "email": email}
+    method = (params.method or "sms").lower()
+    if method not in ("sms", "whatsapp"):
+        method = "sms"
+
+    update_account(email, phone_otp_action="continue", phone_otp_method=method)
+    return {"message": f"已通知浏览器发送验证码 ({method})", "email": email}
 
 
 @app.post("/api/accounts/{email}/phone-otp/submit")
@@ -2170,6 +2180,8 @@ def post_account_login(params: LoginAccountParams):
                     phone_otp_attempts=0,
                     phone_otp_result=None,
                     phone_otp_expires_at=None,
+                    phone_otp_method=None,
+                    phone_otp_phone_number=None,
                 )
                 # 查一下额度并保存快照
                 token = bundle.get("access_token")

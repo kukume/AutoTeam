@@ -493,6 +493,17 @@ def _handle_phone_otp(page, email, *, timeout=600):
     _current_url = (getattr(page, "url", "") or "").lower()
     initial_result = "awaiting_continue" if "phone-otp" in _current_url else "awaiting_code"
 
+    # Extract phone number from page
+    phone_number = ""
+    try:
+        phone_locator = page.locator('span[data-dd-privacy="mask"]')
+        if phone_locator.is_visible(timeout=5000):
+            phone_number = (phone_locator.text_content(timeout=2000) or "").strip()
+            if phone_number:
+                logger.info("[Codex] phone-otp 提取到手机号: %s", phone_number)
+    except Exception as e:
+        logger.warning("[Codex] phone-otp 提取手机号失败: %s", e)
+
     update_account(
         email,
         status=STATUS_PHONE_OTP,
@@ -501,6 +512,8 @@ def _handle_phone_otp(page, email, *, timeout=600):
         phone_otp_attempts=0,
         phone_otp_result=initial_result,
         phone_otp_expires_at=expire_ts,
+        phone_otp_phone_number=phone_number,
+        phone_otp_method=None,
     )
     logger.info("[Codex] 检测到 %s 页面，等待前端操作 | email=%s | 超时=%ds", _current_url.split("/")[-1] or "phone", email, timeout)
 
@@ -515,6 +528,37 @@ def _handle_phone_otp(page, email, *, timeout=600):
 
         if action == "continue":
             update_account(email, phone_otp_action=None)
+            method = str(acc.get("phone_otp_method") or "sms").lower()
+            if method in ("sms", "whatsapp"):
+                try:
+                    radio_group = page.locator('[role="radiogroup"]')
+                    if radio_group.is_visible(timeout=3000):
+                        sms_label = page.locator('label:has(input[value="sms"])')
+                        whatsapp_label = page.locator('label:has(input[value="whatsapp"])')
+                        current_method = ""
+                        try:
+                            if sms_label.get_attribute("data-state") == "on":
+                                current_method = "sms"
+                            elif whatsapp_label.get_attribute("data-state") == "on":
+                                current_method = "whatsapp"
+                        except Exception:
+                            pass
+                        if not current_method:
+                            try:
+                                if page.locator('input[value="sms"]').is_checked():
+                                    current_method = "sms"
+                                elif page.locator('input[value="whatsapp"]').is_checked():
+                                    current_method = "whatsapp"
+                            except Exception:
+                                pass
+                        if method != current_method:
+                            target_label = page.locator(f'label:has(input[value="{method}"])')
+                            if target_label.is_visible(timeout=2000):
+                                target_label.click()
+                                logger.info("[Codex] phone-otp 已切换验证方式: %s → %s", current_method or "unknown", method)
+                                time.sleep(1)
+                except Exception as e:
+                    logger.warning("[Codex] phone-otp 切换验证方式失败: %s", e)
             _screenshot(page, "phone_otp_before_continue.png")
             try:
                 cont_btn = page.locator(

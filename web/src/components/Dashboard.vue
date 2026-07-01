@@ -104,29 +104,19 @@
                 <!-- Phone OTP 交互 -->
                 <button
                   v-if="acc.raw_status === 'phone_otp' && acc.phone_otp_result === 'awaiting_continue'"
-                  @click="phoneOtpContinue(acc.email)"
+                  @click="phoneOtpContinue(acc.email, acc.phone_otp_phone_number)"
                   :disabled="phoneOtpLoading === `${acc.email}:continue`"
                   class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20 disabled:opacity-50">
                   {{ phoneOtpLoading === `${acc.email}:continue` ? '发送中...' : '发送验证码' }}
                 </button>
-                <template v-if="acc.raw_status === 'phone_otp' && ['awaiting_code', 'invalid'].includes(acc.phone_otp_result)">
-                  <input
-                    v-model="phoneOtpCode"
-                    @keyup.enter="phoneOtpSubmit(acc.email)"
-                    type="text"
-                    placeholder="验证码"
-                    maxlength="10"
-                    class="w-20 px-2 py-1.5 text-xs rounded-lg border bg-gray-900 border-gray-700 text-slate-200 focus:border-purple-500 focus:outline-none">
-                  <button
-                    @click="phoneOtpSubmit(acc.email)"
-                    :disabled="phoneOtpLoading === `${acc.email}:submit`"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20 disabled:opacity-50">
-                    {{ phoneOtpLoading === `${acc.email}:submit` ? '提交中...' : '提交' }}
-                  </button>
-                  <span v-if="acc.phone_otp_result === 'invalid' && acc.phone_otp_attempts" class="text-xs text-red-400">
-                    {{ acc.phone_otp_attempts }}/3
-                  </span>
-                </template>
+                <button
+                  v-if="acc.raw_status === 'phone_otp' && ['awaiting_code', 'invalid'].includes(acc.phone_otp_result)"
+                  @click="phoneOtpSubmit(acc.email, acc.phone_otp_phone_number, acc.phone_otp_attempts, acc.phone_otp_result === 'invalid')"
+                  :disabled="phoneOtpLoading === `${acc.email}:submit`"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20 disabled:opacity-50">
+                  {{ phoneOtpLoading === `${acc.email}:submit` ? '提交中...' : '输入验证码' }}
+                  <span v-if="acc.phone_otp_result === 'invalid' && acc.phone_otp_attempts" class="ml-1 text-red-400">{{ acc.phone_otp_attempts }}/3</span>
+                </button>
                 <span v-if="acc.raw_status === 'phone_otp' && acc.phone_otp_result === 'passed'" class="text-xs text-green-400">验证通过</span>
                 <span v-if="acc.raw_status === 'phone_otp' && acc.phone_otp_result === 'max_attempts'" class="text-xs text-red-400">超过重试次数</span>
                 <span v-if="acc.raw_status === 'phone_otp' && acc.phone_otp_result === 'timeout'" class="text-xs text-gray-400">超时</span>
@@ -273,8 +263,6 @@ const exportData = ref(null)
 const copied = ref(false)
 const messageClass = ref('')
 const selectedEmails = ref([])
-const phoneOtpCode = ref('')
-const phoneOtpEmail = ref('')
 const phoneOtpLoading = ref('')  // 邮箱+操作类型，如 "email:continue"
 const adminReady = computed(() => !!props.adminStatus?.configured)
 const actionDisabled = computed(() => !!props.runningTask || !adminReady.value || bulkUpdating.value)
@@ -510,13 +498,15 @@ async function loginAccount(email) {
   }
 }
 
-async function phoneOtpContinue(email) {
+async function phoneOtpContinue(email, phoneNumber = '') {
   if (phoneOtpLoading.value) return
+  const result = await confirmDialog.value.showPhoneSend(phoneNumber)
+  if (result.action !== 'send') return
   phoneOtpLoading.value = `${email}:continue`
   message.value = ''
   try {
-    await api.phoneOtpContinue(email)
-    message.value = `已通知 ${email} 发送验证码`
+    await api.phoneOtpContinue(email, result.method)
+    message.value = `已通知 ${email} 通过${result.method === 'sms' ? '短信' : 'WhatsApp'}发送验证码`
     messageClass.value = 'bg-purple-500/10 text-purple-400 border-purple-500/20'
     emit('refresh')
   } catch (e) {
@@ -528,20 +518,14 @@ async function phoneOtpContinue(email) {
   }
 }
 
-async function phoneOtpSubmit(email) {
+async function phoneOtpSubmit(email, phoneNumber = '', attempts = 0, isInvalid = false) {
   if (phoneOtpLoading.value) return
-  const code = phoneOtpCode.value.trim()
-  if (!code) {
-    message.value = '验证码不能为空'
-    messageClass.value = 'bg-red-500/10 text-red-400 border-red-500/20'
-    setTimeout(() => { message.value = '' }, 5000)
-    return
-  }
+  const result = await confirmDialog.value.showPhoneCode(phoneNumber, attempts, isInvalid)
+  if (result.action !== 'submit') return
   phoneOtpLoading.value = `${email}:submit`
   message.value = ''
   try {
-    await api.phoneOtpSubmit(email, code)
-    phoneOtpCode.value = ''
+    await api.phoneOtpSubmit(email, result.code)
     message.value = `已提交 ${email} 的验证码`
     messageClass.value = 'bg-purple-500/10 text-purple-400 border-purple-500/20'
     emit('refresh')
