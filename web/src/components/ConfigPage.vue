@@ -1,38 +1,5 @@
 <template>
   <div class="mt-6 space-y-6">
-    <div class="glass-card overflow-hidden p-6">
-      <div class="pointer-events-none absolute"></div>
-      <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">
-            <span class="inline-block h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.9)]"></span>
-            AutoTeam Configuration Center
-          </div>
-          <h2 class="section-heading">配置面板</h2>
-          <p class="section-subtitle max-w-2xl">
-            按邮箱服务、远端同步、安全、管理员、巡检和代理拆成独立分区，避免把所有运行配置堆在一个页面里。
-          </p>
-        </div>
-
-        <div class="status-badge max-w-sm text-xs leading-6 text-slate-400">
-          高频配置前置，低频配置后置；代理等高级项默认折叠。
-        </div>
-      </div>
-
-      <div class="mt-6 grid gap-4 md:grid-cols-2">
-        <div class="glass-card-soft p-4">
-          <div class="text-2xl">🧩</div>
-          <div class="mt-3 text-sm font-medium text-white">独立配置分区</div>
-            <div class="mt-1 text-xs leading-5 text-slate-400">邮箱服务、同步、安全等高频项前置，低频代理项后置，不再混在一张表单里。</div>
-        </div>
-        <div class="glass-card-soft p-4">
-          <div class="text-2xl">☁️</div>
-          <div class="mt-3 text-sm font-medium text-white">动态同步配置</div>
-          <div class="mt-1 text-xs leading-5 text-slate-400">可增删多个邮箱服务 / 启用远端目标，再按状态展示对应配置。</div>
-        </div>
-      </div>
-    </div>
-
     <div class="glass-card p-4">
       <div class="flex flex-wrap gap-2">
         <button
