@@ -39,7 +39,6 @@ REQUIRED_CONFIGS = [
     ("CF_TEMP_EMAIL_BASE_URL", "Cloudflare Temp Email 地址", "", True),
     ("CF_TEMP_EMAIL_ADMIN_PASSWORD", "Cloudflare Temp Email 管理密码", "", True),
     ("CF_TEMP_EMAIL_DOMAIN", "Cloudflare Temp Email 邮箱域名（如 example.com）", "", True),
-    ("SYNC_TARGET_CPA", "启用 CPA 同步（true/false）", "", True),
     ("CPA_URL", "CPA (CLIProxyAPI) 地址", "http://127.0.0.1:8317", True),
     ("CPA_KEY", "CPA 管理密钥", "", True),
     ("PLAYWRIGHT_PROXY_URL", "Playwright 浏览器代理 URL（可选，如 socks5://host:port）", "", True),
@@ -82,68 +81,24 @@ def _write_env(key: str, value: str):
             write_text(ENV_FILE, f"{key}={value}\n")
 
 
-def _is_interactive() -> bool:
-    """检测是否有终端交互能力（Docker 等非交互环境返回 False）"""
-    try:
-        return sys.stdin.isatty()
-    except Exception:
-        return False
-
-
 def check_and_setup(interactive: bool = True) -> bool:
     """
-    检查必填配置是否齐全，缺失时交互式提示输入。
-    返回 True 表示配置完整，False 表示用户中断或非交互模式下缺配置。
+    检查必填配置是否齐全，缺失时自动生成。
+    返回 True 表示配置完整。
     """
-    interactive = interactive and _is_interactive()
     env = _read_env()
-    missing = []
 
     for key, prompt, default, optional in STARTUP_REQUIRED_CONFIGS:
         val = env.get(key, "") or os.environ.get(key, "")
         if not val and not optional:
-            missing.append((key, prompt, default, optional))
-
-    if not missing:
-        return True
-
-    if not interactive:
-        for key, prompt, _, _ in missing:
-            logger.warning("[配置] 缺少必填项: %s (%s)", key, prompt)
-        logger.warning("[配置] 请通过 Web 面板或编辑 .env 文件填入配置")
-        return False
-
-    print("\n=== AutoTeam 首次配置 ===\n")
-    print("检测到以下配置项需要填写，直接回车使用默认值（如有）:\n")
-
-    for key, prompt, default, optional in missing:
-        hint = f" [{default}]" if default else ""
-        if key == "API_KEY":
-            hint = " [回车自动生成]"
-
-        try:
-            value = input(f"  {prompt}{hint}: ").strip()
-        except KeyboardInterrupt:
-            print("\n\n已取消配置。")
-            raise SystemExit(130)
-
-        if not value:
             if key == "API_KEY":
-                value = secrets.token_urlsafe(24)
-                print(f"    -> 已自动生成: {value}")
-            elif default:
-                value = default
-                print(f"    -> 使用默认值: {value}")
-            elif not optional:
-                print("    -> 跳过（必填项，后续可在 .env 中补充）")
-                continue
-
-        if value:
-            _write_env(key, value)
-            # 同步到当前进程的环境变量
-            os.environ[key] = value
-
-    print("\n配置已保存到 .env\n")
+                val = secrets.token_urlsafe(24)
+                _write_env(key, val)
+                os.environ[key] = val
+                logger.info("[配置] %s 未设置，已自动生成: %s", key, val)
+            else:
+                logger.warning("[配置] 缺少必填项: %s (%s)", key, prompt)
+                return False
 
     # 重新加载 config 和依赖模块
     import importlib

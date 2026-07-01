@@ -1,11 +1,8 @@
 <template>
-  <ThemeToggle v-if="needSetup || !authenticated" floating />
-
-  <!-- 初始配置页 -->
-  <SetupPage v-if="needSetup" @configured="onSetupDone" />
+  <ThemeToggle v-if="!authenticated" floating />
 
   <!-- 登录页 -->
-  <div v-else-if="!authenticated" class="relative min-h-screen overflow-hidden">
+  <div v-if="!authenticated" class="relative min-h-screen overflow-hidden">
     <div class="pointer-events-none absolute inset-0">
       <div class="absolute left-[-8rem] top-[-8rem] h-72 w-72 rounded-full bg-blue-500/20 blur-3xl"></div>
       <div class="absolute bottom-[-10rem] right-[-5rem] h-80 w-80 rounded-full bg-cyan-500/15 blur-3xl"></div>
@@ -158,7 +155,6 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { api, setApiKey, clearApiKey } from './api.js'
-import SetupPage from './components/SetupPage.vue'
 import Sidebar from './components/Sidebar.vue'
 import Dashboard from './components/Dashboard.vue'
 import ConfigPage from './components/ConfigPage.vue'
@@ -171,7 +167,6 @@ import OAuthPage from './components/OAuthPage.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import { initTheme } from './theme.js'
 
-const needSetup = ref(false)
 const authenticated = ref(false)
 const authRequired = ref(false)
 const authLoading = ref(false)
@@ -298,32 +293,8 @@ function stopPolling() {
   }
 }
 
-async function checkSetup() {
-  try {
-    const result = await api.getSetupStatus()
-    return result.configured
-  } catch {
-    return true // 接口不存在说明是旧版本，跳过
-  }
-}
-
-function onSetupDone() {
-  needSetup.value = false
-  checkAuth().then(ok => {
-    if (ok) {
-      refresh()
-      startPolling(600000)
-    }
-  })
-}
-
 onMounted(async () => {
   initTheme()
-  const setupOk = await checkSetup()
-  if (!setupOk) {
-    needSetup.value = true
-    return
-  }
   const ok = await checkAuth()
   if (ok) {
     refresh()

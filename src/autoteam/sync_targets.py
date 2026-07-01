@@ -6,8 +6,6 @@ import logging
 import os
 from collections.abc import Mapping
 
-from autoteam.textio import parse_env_value
-
 logger = logging.getLogger(__name__)
 
 SYNC_TARGET_CPA = "cpa"
@@ -15,26 +13,14 @@ SYNC_TARGET_CPA = "cpa"
 _SYNC_TARGET_META = {
     SYNC_TARGET_CPA: {
         "label": "CPA",
-        "toggle_key": "SYNC_TARGET_CPA",
         "config_keys": ("CPA_URL", "CPA_KEY"),
     },
 }
-
-_TRUE_VALUES = {"1", "true", "yes", "on", "enabled"}
 
 
 def _normalize_env(env: Mapping[str, object] | None = None) -> dict[str, str]:
     source = env or os.environ
     return {str(key): "" if value is None else str(value) for key, value in source.items()}
-
-
-def parse_bool_env(value: object, default: bool = False) -> bool:
-    if value is None:
-        return default
-    text = parse_env_value(str(value))
-    if not text:
-        return default
-    return text.strip().lower() in _TRUE_VALUES
 
 
 def get_sync_target_meta(target: str) -> dict[str, object]:
@@ -46,16 +32,10 @@ def get_sync_target_meta(target: str) -> dict[str, object]:
 
 def get_sync_target_states(env: Mapping[str, object] | None = None) -> dict[str, bool]:
     values = _normalize_env(env)
-    states = {}
-    for target, meta in _SYNC_TARGET_META.items():
-        toggle_key = str(meta["toggle_key"])
-        config_keys = tuple(meta["config_keys"])
-        raw_toggle = (values.get(toggle_key) or "").strip()
-        if raw_toggle:
-            states[target] = parse_bool_env(raw_toggle)
-        else:
-            states[target] = all((values.get(key) or "").strip() for key in config_keys)
-    return states
+    return {
+        target: all((values.get(key) or "").strip() for key in tuple(meta["config_keys"]))
+        for target, meta in _SYNC_TARGET_META.items()
+    }
 
 
 def is_sync_target_enabled(target: str, env: Mapping[str, object] | None = None) -> bool:
@@ -67,24 +47,10 @@ def get_enabled_sync_targets(env: Mapping[str, object] | None = None) -> list[st
     return [target for target in _SYNC_TARGET_META if states.get(target)]
 
 
-def get_available_sync_targets(env: Mapping[str, object] | None = None) -> list[str]:
-    values = _normalize_env(env)
-    available = []
-    for target, meta in _SYNC_TARGET_META.items():
-        if all((values.get(key) or "").strip() for key in tuple(meta["config_keys"])):
-            available.append(target)
-    return available
-
-
 def get_sync_target_labels(targets: list[str] | None = None) -> list[str]:
     if targets is None:
         targets = list(_SYNC_TARGET_META)
-    labels = []
-    for target in targets:
-        meta = _SYNC_TARGET_META.get(target)
-        if meta:
-            labels.append(str(meta["label"]))
-    return labels
+    return [str(_SYNC_TARGET_META[target]["label"]) for target in targets if target in _SYNC_TARGET_META]
 
 
 def describe_sync_targets(targets: list[str] | None = None) -> str:
@@ -132,9 +98,9 @@ def sync_main_codex_to_configured_targets(filepath: str):
     return results
 
 
-def delete_main_codex_from_configured_targets(*, include_disabled: bool = False):
+def delete_main_codex_from_configured_targets():
     results = {}
-    targets = get_available_sync_targets() if include_disabled else get_enabled_sync_targets()
+    targets = get_enabled_sync_targets()
 
     if SYNC_TARGET_CPA in targets:
         from autoteam.cpa_sync import delete_main_codex_from_cpa
@@ -149,10 +115,10 @@ def delete_main_codex_from_configured_targets(*, include_disabled: bool = False)
 
 
 def delete_account_from_configured_targets(
-    email: str, *, auth_names: list[str] | None = None, include_disabled: bool = False
+    email: str, *, auth_names: list[str] | None = None
 ):
     results = {}
-    targets = get_available_sync_targets() if include_disabled else get_enabled_sync_targets()
+    targets = get_enabled_sync_targets()
 
     if SYNC_TARGET_CPA in targets:
         from autoteam.cpa_sync import delete_from_cpa, list_cpa_files

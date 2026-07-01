@@ -254,68 +254,6 @@ def test_get_status_counts_disabled_and_skips_disabled_quota_checks(tmp_path, mo
     }
 
 
-def test_post_setup_save_only_requires_api_key_and_generates_one(monkeypatch):
-    written = {}
-
-    def fake_write_env(key, value):
-        written[key] = value
-
-    monkeypatch.setattr("autoteam.setup_wizard._write_env", fake_write_env)
-    monkeypatch.setattr("autoteam.setup_wizard._verify_mail_provider", lambda provider=None: True)
-    monkeypatch.setattr("autoteam.setup_wizard._verify_cpa", lambda: True)
-    monkeypatch.setattr("secrets.token_urlsafe", lambda _n: "generated-token")
-    monkeypatch.setattr("importlib.reload", lambda module: module)
-    monkeypatch.setattr(api, "API_KEY", "")
-    monkeypatch.delenv("CPA_URL", raising=False)
-    monkeypatch.delenv("CLOUDMAIL_BASE_URL", raising=False)
-    monkeypatch.delenv("CLOUDMAIL_EMAIL", raising=False)
-    monkeypatch.delenv("CLOUDMAIL_PASSWORD", raising=False)
-    monkeypatch.delenv("CLOUDMAIL_DOMAIN", raising=False)
-    monkeypatch.delenv("API_KEY", raising=False)
-
-    result = api.post_setup_save(
-        api.SetupConfig(
-            CLOUDMAIL_BASE_URL="http://mail.example.com",
-            CLOUDMAIL_EMAIL="admin@example.com",
-            CLOUDMAIL_PASSWORD="secret",
-            CLOUDMAIL_DOMAIN="@example.com",
-            CPA_URL="",
-            CPA_KEY="key-1",
-            PLAYWRIGHT_PROXY_URL="",
-            PLAYWRIGHT_PROXY_BYPASS="",
-            API_KEY="",
-        )
-    )
-
-    assert written["API_KEY"] == "generated-token"
-    assert result["api_key"] == "generated-token"
-    assert api.API_KEY == "generated-token"
-    assert "CPA_URL" not in written
-
-
-def test_get_setup_status_only_requires_api_key(tmp_path, monkeypatch):
-    env_file = tmp_path / ".env"
-    env_file.write_text("", encoding="utf-8")
-
-    monkeypatch.setattr("autoteam.setup_wizard.ENV_FILE", env_file)
-    monkeypatch.setattr("autoteam.setup_wizard.ENV_EXAMPLE", tmp_path / ".env.example")
-    for key in ("API_KEY", "CLOUDMAIL_BASE_URL", "CPA_KEY"):
-        monkeypatch.delenv(key, raising=False)
-
-    result = api.get_setup_status()
-
-    assert result["configured"] is False
-    assert result["fields"] == [
-        {
-            "key": "API_KEY",
-            "prompt": "API 鉴权密钥（回车自动生成）",
-            "default": "",
-            "optional": False,
-            "configured": False,
-        }
-    ]
-
-
 def test_get_runtime_config_returns_current_values_from_env_file(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -360,8 +298,7 @@ def test_get_runtime_config_returns_current_values_from_env_file(tmp_path, monke
     assert fields["PLAYWRIGHT_PROXY_URL"]["value"] == "socks5://127.0.0.1:1080"
     assert fields["PLAYWRIGHT_PROXY_URL"]["runtime_required"] is False
     assert fields["PLAYWRIGHT_PROXY_BYPASS"]["value"] == "localhost,127.0.0.1"
-    assert fields["API_KEY"]["value"] == ""
-    assert fields["API_KEY"]["runtime_required"] is True
+    assert "API_KEY" not in fields
 
 
 def test_get_runtime_config_switches_required_mail_fields_by_provider(tmp_path, monkeypatch):
@@ -491,7 +428,7 @@ def test_put_runtime_config_saves_structured_mail_services_and_mirrors_default(m
     monkeypatch.setenv("CLOUDMAIL_DOMAIN", "@old.example.com")
 
     result = api.put_runtime_config(
-        api.SetupConfig(
+        api.RuntimeConfigItem(
             API_KEY="old-key",
             mail_services=services,
             mail_service_default="cf-1",
@@ -538,7 +475,7 @@ def test_put_runtime_config_allows_partial_runtime_fields_when_api_key_exists(mo
     monkeypatch.delenv("CPA_KEY", raising=False)
 
     result = api.put_runtime_config(
-        api.SetupConfig(
+        api.RuntimeConfigItem(
             CLOUDMAIL_BASE_URL="",
             CLOUDMAIL_EMAIL="",
             CLOUDMAIL_PASSWORD="",
@@ -554,41 +491,6 @@ def test_put_runtime_config_allows_partial_runtime_fields_when_api_key_exists(mo
     assert result["message"] == "配置保存成功"
     assert written["API_KEY"] == "old-key"
     assert "CPA_URL" not in written
-
-
-def test_put_runtime_config_disabling_cpa_skips_stale_cpa_validation(monkeypatch):
-    written = {}
-
-    monkeypatch.setattr("autoteam.setup_wizard._write_env", lambda key, value: written.setdefault(key, value))
-    monkeypatch.setattr(
-        "autoteam.setup_wizard._read_env",
-        lambda: {
-            "SYNC_TARGET_CPA": "true",
-            "CPA_URL": "http://127.0.0.1:8317",
-            "CPA_KEY": "old-key",
-            "API_KEY": "old-key",
-        },
-    )
-    monkeypatch.setattr("autoteam.setup_wizard._verify_mail_provider", lambda provider=None: True)
-    monkeypatch.setattr(
-        "autoteam.setup_wizard._verify_cpa",
-        lambda: (_ for _ in ()).throw(AssertionError("cpa verify should not run after disabling cpa sync")),
-    )
-    monkeypatch.setattr("importlib.reload", lambda module: module)
-    monkeypatch.setattr(api, "API_KEY", "old-key")
-    monkeypatch.setenv("API_KEY", "old-key")
-
-    result = api.put_runtime_config(
-        api.SetupConfig(
-            API_KEY="old-key",
-            SYNC_TARGET_CPA="false",
-            CPA_URL="http://127.0.0.1:8317",
-            CPA_KEY="old-key",
-        )
-    )
-
-    assert result["message"] == "配置保存成功"
-    assert written["SYNC_TARGET_CPA"] == "false"
 
 
 def test_post_account_login_rejects_non_team_plan(monkeypatch):
@@ -774,7 +676,6 @@ def test_pool_task_endpoints_require_enabled_sync_target_after_cloudmail(monkeyp
     monkeypatch.setenv("CLOUDMAIL_PASSWORD", "secret")
     monkeypatch.setenv("CLOUDMAIL_DOMAIN", "@example.com")
     for key in (
-        "SYNC_TARGET_CPA",
         "CPA_URL",
         "CPA_KEY",
     ):

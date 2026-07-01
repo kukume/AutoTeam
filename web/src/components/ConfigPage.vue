@@ -173,7 +173,7 @@
               <input
                 v-model="service[field.key]"
                 :type="field.inputType || 'text'"
-                :placeholder="field.placeholder || ''"
+                :placeholder="field.inputType === 'password' ? '留空则不修改' : (field.placeholder || '')"
                 class="input-dark"
               />
             </div>
@@ -196,38 +196,10 @@
 
       <div v-else-if="selectedRuntimeCategory === 'sync'" class="space-y-5">
         <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div class="mb-4 flex items-center justify-between gap-4">
-            <div>
-              <div class="text-sm font-medium text-white">同步目标开关</div>
-              <div class="mt-1 text-xs leading-5 text-slate-400">
-                可同时启用多个远端。界面只展示当前已启用目标的详细配置。
-              </div>
-            </div>
-            <div class="status-badge text-xs text-slate-400">
-              {{ enabledSyncTargetsText }}
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div v-for="field in syncToggleFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                {{ field.prompt }}
-              </label>
-              <select
-                v-model="runtimeForm[field.key]"
-                class="input-dark"
-              >
-                <option value="true">启用</option>
-                <option value="false">关闭</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="syncCpaEnabled" class="rounded-2xl border border-white/10 bg-white/5 p-5">
           <div class="mb-4">
-            <div class="text-sm font-medium text-white">CPA</div>
+            <div class="text-sm font-medium text-white">CPA 同步配置</div>
             <div class="mt-1 text-xs leading-5 text-slate-400">
-              为已启用的 CPA 远端填写连接地址和管理密钥。
+              填写 CPA 远端连接地址和管理密钥，保存后立即热加载。
             </div>
           </div>
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -239,15 +211,11 @@
               <input
                 v-model="runtimeForm[field.key]"
                 :type="fieldInputType(field.key)"
-                :placeholder="field.default || ''"
+                :placeholder="fieldPlaceholder(field.key, field.default)"
                 class="input-dark"
               />
             </div>
           </div>
-        </div>
-
-        <div v-if="!syncCpaEnabled" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-400">
-          当前还没有启用任何远端同步目标。先打开上面的开关，再填写对应远端配置。
         </div>
 
         <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -288,7 +256,7 @@
               <input
                 v-model="runtimeForm[field.key]"
                 :type="fieldInputType(field.key)"
-                :placeholder="field.default || ''"
+                :placeholder="fieldPlaceholder(field.key, field.default)"
                 class="input-dark"
               />
             </div>
@@ -312,17 +280,16 @@
       <div v-else class="space-y-4">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div v-for="field in currentRuntimeFields" :key="field.key" class="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <label class="mb-2 block text-sm font-medium text-slate-300">
-              {{ field.prompt }}
-              <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
-              <span v-if="field.key === 'API_KEY'" class="ml-1 text-xs text-slate-500">（留空自动生成）</span>
-            </label>
-            <input
-              v-model="runtimeForm[field.key]"
-              :type="fieldInputType(field.key)"
-              :placeholder="field.default || ''"
-              class="input-dark"
-            />
+          <label class="mb-2 block text-sm font-medium text-slate-300">
+            {{ field.prompt }}
+            <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
+          </label>
+          <input
+            v-model="runtimeForm[field.key]"
+            :type="fieldInputType(field.key)"
+            :placeholder="fieldPlaceholder(field.key, field.default)"
+            class="input-dark"
+          />
           </div>
         </div>
 
@@ -363,7 +330,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { api, setApiKey } from '../api.js'
+import { api } from '../api.js'
 import Settings from './Settings.vue'
 
 defineProps({
@@ -382,12 +349,10 @@ const emit = defineEmits(['refresh', 'admin-progress'])
 const runtimeCategoryKeys = {
   cloudmail: ['MAIL_PROVIDER', 'CLOUDMAIL_BASE_URL', 'CLOUDMAIL_EMAIL', 'CLOUDMAIL_PASSWORD', 'CLOUDMAIL_DOMAIN', 'CF_TEMP_EMAIL_BASE_URL', 'CF_TEMP_EMAIL_ADMIN_PASSWORD', 'CF_TEMP_EMAIL_DOMAIN'],
   sync: [
-    'SYNC_TARGET_CPA',
     'CPA_URL',
     'CPA_KEY',
   ],
   proxy: ['PLAYWRIGHT_PROXY_URL', 'PLAYWRIGHT_PROXY_BYPASS'],
-  security: ['API_KEY'],
 }
 
 const runtimeCategoryMeta = {
@@ -403,8 +368,8 @@ const runtimeCategoryMeta = {
     icon: '☁️',
     badge: 'Remote Sync',
     title: '远端同步',
-    description: '先选择启用的远端同步目标，再填写对应的连接信息。账号池操作会根据这里的启用状态决定同步到哪些远端。',
-    note: '界面只显示当前已启用目标的详细配置。',
+    description: '填写 CPA 远端连接地址和管理密钥。配置后会自动同步到已启用的远端。',
+    note: 'Account pool operations sync to all configured remotes automatically.',
   },
   proxy: {
     icon: '🛰️',
@@ -413,20 +378,11 @@ const runtimeCategoryMeta = {
     description: '用于单独配置 Playwright 浏览器流量代理。属于低频项，默认折叠，避免把主配置界面堆得过满。',
     note: '只有在代理 ChatGPT / Auth 页面访问时才建议配置；本地回调场景通常还需要设置 bypass。',
   },
-  security: {
-    icon: '🔐',
-    badge: 'Security',
-    title: '安全 / 访问控制',
-    description: '入口级配置集中放在这里。API Key 决定 Web 面板和 HTTP API 的访问控制，不再和其他运行参数混在一起。',
-    note: '留空会自动生成新的 API Key；保存后前端会立即切换到新的密钥。',
-    footer: '这是控制面板和 API 的入口密钥。修改后会立即生效，并同步刷新当前浏览器里的 API Key。',
-  },
 }
 
 const visualCategories = [
   { key: 'cloudmail', label: '邮箱服务', icon: '📧' },
   { key: 'sync', label: '远端同步', icon: '☁️' },
-  { key: 'security', label: '安全 / 访问控制', icon: '🔐' },
   { key: 'admin', label: '管理员 / 主号', icon: '👤' },
   { key: 'auto-check', label: '巡检设置', icon: '🔄' },
   { key: 'proxy', label: '代理 / 高级', icon: '🛰️' },
@@ -511,23 +467,12 @@ function fieldsByKeys(keys) {
     .filter(Boolean)
 }
 
-const securityFields = computed(() => fieldsByKeys(runtimeCategoryKeys.security))
 const proxyFields = computed(() => fieldsByKeys(runtimeCategoryKeys.proxy))
-const syncToggleFields = computed(() => fieldsByKeys(['SYNC_TARGET_CPA']))
+const syncCpaFields = computed(() => fieldsByKeys(['CPA_URL', 'CPA_KEY']))
 const defaultMailService = computed(() => mailServices.value.find(service => service.id === mailServiceDefault.value) || null)
 
-const syncCpaEnabled = computed(() => String(runtimeForm.SYNC_TARGET_CPA || '').toLowerCase() === 'true')
-const syncCpaFields = computed(() => syncCpaEnabled.value ? fieldsByKeys(['CPA_URL', 'CPA_KEY']) : [])
-
 const currentRuntimeFields = computed(() => {
-  if (selectedRuntimeCategory.value === 'security') {
-    return securityFields.value
-  }
   return []
-})
-
-const enabledSyncTargetsText = computed(() => {
-  return syncCpaEnabled.value ? '已启用：CPA' : '当前未启用远端'
 })
 
 const currentRuntimeStatus = computed(() => {
@@ -539,13 +484,6 @@ const currentRuntimeStatus = computed(() => {
   }
 
   if (selectedRuntimeCategory.value === 'sync') {
-    if (!syncCpaEnabled.value) {
-      return {
-        label: '未启用',
-        class: 'border-white/10 bg-white/5 text-slate-400',
-      }
-    }
-
     const cpaReady = syncCpaFields.value.every(field => !isRuntimeRequired(field) || field.configured)
 
     return cpaReady
@@ -625,12 +563,12 @@ function fieldInputType(key) {
   return key.includes('PASSWORD') || key.includes('KEY') ? 'password' : 'text'
 }
 
-function isToggleField(key) {
-  return key === 'SYNC_TARGET_CPA'
+function fieldIsSensitive(key) {
+  return key.includes('PASSWORD') || key.includes('KEY')
 }
 
-function isBooleanStringField(key) {
-  return isToggleField(key)
+function fieldPlaceholder(key, fallback = '') {
+  return fieldIsSensitive(key) ? '留空则不修改' : (fallback || '')
 }
 
 function createMailService(type = 'cloudmail') {
@@ -736,11 +674,7 @@ function isRuntimeRequired(field) {
 }
 
 function normalizeRuntimeFieldValue(field) {
-  const value = field?.value ?? field?.default ?? ''
-  if (isBooleanStringField(field?.key)) {
-    return String(value).toLowerCase() === 'true' ? 'true' : 'false'
-  }
-  return value
+  return field?.value ?? field?.default ?? ''
 }
 
 async function loadRuntimeConfig() {
@@ -786,9 +720,6 @@ async function saveRuntimeConfig() {
     payload.mail_services = sanitizedServices
     payload.mail_service_default = sanitizedDefault
     const result = await api.saveRuntimeConfig(payload)
-    if (result.api_key) {
-      setApiKey(result.api_key)
-    }
     setRuntimeMessage(result.message || '配置保存成功')
     runtimeSaved.value = true
     window.setTimeout(() => {

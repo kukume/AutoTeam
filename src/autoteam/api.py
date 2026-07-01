@@ -36,8 +36,7 @@ app = FastAPI(
 
 import secrets as _secrets_mod
 
-# 首次配置（API_KEY 未设置）时不鉴权；已配置后 setup/save 也需要鉴权
-_AUTH_SKIP_PATHS = {"/api/auth/check", "/api/setup/status", "/api/setup/save"}
+_AUTH_SKIP_PATHS = {"/api/auth/check"}
 
 
 def _is_auth_path(path: str) -> bool:
@@ -83,11 +82,11 @@ def check_auth(request: Request):
 
 
 # ---------------------------------------------------------------------------
-# 初始配置 API（无需鉴权）
+# 运行时配置 API（需鉴权）
 # ---------------------------------------------------------------------------
 
 
-class SetupConfig(BaseModel):
+class RuntimeConfigItem(BaseModel):
     MAIL_PROVIDER: str = "cloudmail"
     MAIL_SERVICES_JSON: str = ""
     MAIL_SERVICE_DEFAULT: str = ""
@@ -100,12 +99,11 @@ class SetupConfig(BaseModel):
     CF_TEMP_EMAIL_BASE_URL: str = ""
     CF_TEMP_EMAIL_ADMIN_PASSWORD: str = ""
     CF_TEMP_EMAIL_DOMAIN: str = ""
-    SYNC_TARGET_CPA: str | bool = ""
+
     CPA_URL: str = "http://127.0.0.1:8317"
     CPA_KEY: str = ""
     PLAYWRIGHT_PROXY_URL: str = ""
     PLAYWRIGHT_PROXY_BYPASS: str = ""
-    API_KEY: str = ""
 
 
 _RUNTIME_CONFIG_CLEARABLE_FIELDS = {
@@ -130,13 +128,12 @@ _CF_TEMP_EMAIL_REQUIRED_KEYS = (
     "CF_TEMP_EMAIL_DOMAIN",
 )
 _CPA_REQUIRED_KEYS = ("CPA_URL", "CPA_KEY")
-_SYNC_TARGET_TOGGLE_KEYS = ("SYNC_TARGET_CPA",)
+
 
 _SENSITIVE_FIELD_KEYS = {
     "CLOUDMAIL_PASSWORD",
     "CF_TEMP_EMAIL_ADMIN_PASSWORD",
     "CPA_KEY",
-    "API_KEY",
 }
 
 _ALL_RUNTIME_ENV_KEYS = [
@@ -151,7 +148,7 @@ _ALL_RUNTIME_ENV_KEYS = [
     "CF_TEMP_EMAIL_ADMIN_PASSWORD",
     "CF_TEMP_EMAIL_DOMAIN",
     "CHATGPT_ACCOUNT_ID",
-    "SYNC_TARGET_CPA",
+
     "CPA_URL",
     "CPA_KEY",
     "EMAIL_POLL_INTERVAL",
@@ -386,11 +383,10 @@ def _collect_config_fields(*, include_values: bool = False, configs=None):
     fields = []
     all_ok = True
     for key, prompt, default, optional in config_items:
+        if key == "API_KEY" and include_values:
+            continue
         raw_value = env.get(key, "") or os.environ.get(key, "")
-        if key == "SYNC_TARGET_CPA":
-            raw_value = "true" if target_states.get("cpa") else "false"
-            configured = True
-        elif key == "MAIL_PROVIDER":
+        if key == "MAIL_PROVIDER":
             raw_value = mail_provider
             configured = True
         else:
@@ -659,7 +655,7 @@ def _verify_runtime_integrations(
         "CF_TEMP_EMAIL_ADMIN_PASSWORD",
         "CF_TEMP_EMAIL_DOMAIN",
     )
-    cpa_keys = ("SYNC_TARGET_CPA", "CPA_URL", "CPA_KEY")
+    cpa_keys = ("CPA_URL", "CPA_KEY")
 
     def _changed(keys: tuple[str, ...]) -> bool:
         if previous_env is None:
@@ -698,10 +694,7 @@ def _verify_runtime_integrations(
     if _changed(cpa_keys) and sync_states.get("cpa") and all(cpa_values) and not _verify_cpa():
         errors.append("CPA 连接失败")
     if errors:
-        api_key = ""
-        if previous_env:
-            api_key = previous_env.get("API_KEY", "") or ""
-        return JSONResponse(status_code=400, content={"message": "、".join(errors), "api_key": api_key})
+        return JSONResponse(status_code=400, content={"message": "、".join(errors)})
     return None
 
 
@@ -721,7 +714,7 @@ def _save_runtime_config(data: dict[str, str]):
     env_keys = [key for key, _prompt, _default, _optional in REQUIRED_CONFIGS]
     existing = {key: os.environ.get(key, "") for key in env_keys}
     merged = {key: data.get(key, existing.get(key, "")) for key in env_keys}
-    # 敏感字段留空时保持原值不变（API_KEY 由后续逻辑自动生成）
+    # 敏感字段留空时保持原值不变
     for key in _SENSITIVE_FIELD_KEYS:
         if key in merged and not merged[key]:
             merged[key] = existing.get(key, "")
@@ -769,9 +762,6 @@ def _save_runtime_config(data: dict[str, str]):
     else:
         merged["MAIL_PROVIDER"] = normalize_mail_provider(merged.get("MAIL_PROVIDER") or existing.get("MAIL_PROVIDER"))
 
-    if not merged.get("API_KEY"):
-        merged["API_KEY"] = _secrets.token_urlsafe(24)
-
     missing = _validate_runtime_required_values(merged)
     if missing:
         return JSONResponse(
@@ -802,25 +792,11 @@ def _save_runtime_config(data: dict[str, str]):
 
         _sync_runtime_env_reload_state()
         _sync_runtime_globals()
-        return {"message": "配置保存成功", "api_key": API_KEY, "configured": True}
+        return {"message": "配置保存成功", "configured": True}
     except Exception:
         _restore_runtime_env(previous_env)
         _reload_runtime_config_modules()
         raise
-
-
-@app.get("/api/setup/status")
-def get_setup_status():
-    """检查配置是否完整"""
-    from autoteam.setup_wizard import STARTUP_REQUIRED_CONFIGS
-
-    return _collect_config_fields(configs=STARTUP_REQUIRED_CONFIGS)
-
-
-@app.post("/api/setup/save")
-def post_setup_save(config: SetupConfig):
-    """保存配置到 .env 并验证连通性"""
-    return _save_runtime_config(config.model_dump(exclude_unset=True))
 
 
 @app.get("/api/config/runtime")
@@ -830,7 +806,7 @@ def get_runtime_config():
 
 
 @app.put("/api/config/runtime")
-def put_runtime_config(config: SetupConfig):
+def put_runtime_config(config: RuntimeConfigItem):
     """登录后修改 CloudMail / CPA / 代理等运行时配置。"""
     return _save_runtime_config(config.model_dump(exclude_unset=True))
 
