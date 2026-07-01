@@ -93,7 +93,7 @@
 
     <!-- 侧边栏 -->
     <Sidebar :active="currentPage" :loading="loading" :auth-required="authRequired"
-      @navigate="currentPage = $event" @refresh="refresh" @logout="doLogout" />
+      @navigate="onNavigate" @refresh="refreshAll" @logout="doLogout" />
 
     <!-- 主内容区 -->
     <div class="relative min-w-0 flex-1 overflow-y-auto pb-20 md:pb-8">
@@ -120,13 +120,13 @@
       <!-- 页面内容 -->
         <Dashboard v-if="currentPage === 'dashboard'"
           :status="status" :loading="loading" :running-task="busyTask" :admin-status="adminStatus"
-          @refresh="refresh" @task-started="onTaskStarted" />
+          @refresh="refreshDynamic" @task-started="refreshDynamic" />
 
         <ConfigPage
           v-else-if="currentPage === 'config'"
           :admin-status="adminStatus"
           :codex-status="codexStatus"
-          @refresh="refresh"
+          @refresh="onConfigRefresh"
           @admin-progress="onAdminProgress"
         />
 
@@ -134,14 +134,14 @@
 
         <PoolPage v-else-if="currentPage === 'pool'"
           :running-task="busyTask" :admin-status="adminStatus"
-          @task-started="onTaskStarted" @refresh="refresh" />
+          @task-started="refreshDynamic" @refresh="refreshDynamic" />
 
         <SyncPage v-else-if="currentPage === 'sync'"
           :running-task="busyTask" :admin-status="adminStatus"
-          @task-started="onTaskStarted" @refresh="refresh" />
+          @task-started="refreshDynamic" @refresh="refreshDynamic" />
 
         <OAuthPage v-else-if="currentPage === 'oauth'"
-          :manual-account-status="manualAccountStatus" @refresh="refresh" @progress="onAdminProgress" />
+          :manual-account-status="manualAccountStatus" @refresh="onOAuthRefresh" @progress="refreshManual" />
 
         <TaskHistoryPage v-else-if="currentPage === 'tasks'"
           :tasks="tasks" />
@@ -191,8 +191,11 @@ const busyTask = computed(() => {
   return runningTask.value
 })
 
-let pollTimer = null
+// --- Pages that need dynamic data (getStatus / getTasks) ---
+const PAGES_WITH_STATUS = new Set(['dashboard'])
+const PAGES_WITH_TASKS = new Set(['dashboard', 'pool', 'sync', 'tasks'])
 
+// --- Auth ---
 async function checkAuth() {
   try {
     const result = await api.checkAuth()
@@ -222,8 +225,8 @@ async function doLogin() {
       authError.value = 'API Key 无效'
     } else {
       inputKey.value = ''
-      refresh()
-      startPolling(600000)
+      refreshAll()
+      startPolling()
     }
   } catch (e) {
     clearApiKey()
@@ -239,7 +242,42 @@ function doLogout() {
   stopPolling()
 }
 
-async function refresh() {
+// --- Refresh functions ---
+async function refreshDynamic() {
+  const page = currentPage.value
+  const fetches = []
+  if (PAGES_WITH_TASKS.has(page)) fetches.push(api.getTasks())
+  if (PAGES_WITH_STATUS.has(page)) fetches.push(api.getStatus())
+  if (fetches.length === 0) return
+  try {
+    const results = await Promise.all(fetches)
+    let idx = 0
+    if (PAGES_WITH_TASKS.has(page)) {
+      tasks.value = results[idx++]
+      runningTask.value = tasks.value.find(t => t.status === 'running' || t.status === 'pending') || null
+    }
+    if (PAGES_WITH_STATUS.has(page)) {
+      status.value = results[idx++]
+    }
+  } catch (e) {
+    if (e.status === 401) { authenticated.value = false; return }
+    console.error('动态刷新失败:', e)
+  }
+}
+
+async function refreshAdmin() {
+  try { adminStatus.value = await api.getAdminStatus() } catch (e) { if (e.status === 401) authenticated.value = false }
+}
+
+async function refreshCodex() {
+  try { codexStatus.value = await api.getMainCodexStatus() } catch (e) { if (e.status === 401) authenticated.value = false }
+}
+
+async function refreshManual() {
+  try { manualAccountStatus.value = await api.getManualAccountStatus() } catch (e) { if (e.status === 401) authenticated.value = false }
+}
+
+async function refreshAll() {
   loading.value = true
   try {
     const [s, t, admin, codex, manualAccount] = await Promise.all([
@@ -256,34 +294,41 @@ async function refresh() {
     manualAccountStatus.value = manualAccount
     runningTask.value = t.find(t => t.status === 'running' || t.status === 'pending') || null
   } catch (e) {
-    if (e.status === 401) {
-      authenticated.value = false
-      return
-    }
+    if (e.status === 401) { authenticated.value = false; return }
     console.error('刷新失败:', e)
   } finally {
     loading.value = false
   }
 }
 
-function onTaskStarted() {
-  startPolling(10000)
-  refresh()
+// --- Event handlers ---
+function onNavigate(page) {
+  currentPage.value = page
+  refreshDynamic()
 }
 
 function onAdminProgress() {
-  startPolling(10000)
-  refresh()
+  refreshAdmin()
+  refreshCodex()
 }
 
-function startPolling(interval = 600000) {
+function onConfigRefresh() {
+  refreshAdmin()
+  refreshCodex()
+  refreshDynamic()
+}
+
+function onOAuthRefresh() {
+  refreshManual()
+  refreshDynamic()
+}
+
+// --- Polling: 5s, dynamic data only ---
+let pollTimer = null
+
+function startPolling() {
   stopPolling()
-  pollTimer = setInterval(async () => {
-    await refresh()
-    if (!busyTask.value && interval < 600000) {
-      startPolling(600000)
-    }
-  }, interval)
+  pollTimer = setInterval(refreshDynamic, 5000)
 }
 
 function stopPolling() {
@@ -297,8 +342,8 @@ onMounted(async () => {
   initTheme()
   const ok = await checkAuth()
   if (ok) {
-    refresh()
-    startPolling(600000)
+    refreshAll()
+    startPolling()
   }
 })
 
