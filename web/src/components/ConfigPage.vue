@@ -10,16 +10,16 @@
           </div>
           <h2 class="section-heading">配置面板</h2>
           <p class="section-subtitle max-w-2xl">
-            按邮箱服务、远端同步、安全、管理员、巡检、源文件编辑和代理拆成独立分区，避免把所有运行配置堆在一个页面里。
+            按邮箱服务、远端同步、安全、管理员、巡检和代理拆成独立分区，避免把所有运行配置堆在一个页面里。
           </p>
         </div>
 
         <div class="status-badge max-w-sm text-xs leading-6 text-slate-400">
-          高频配置前置，低频配置后置；代理等高级项默认折叠，源文件编辑仍然保留。
+          高频配置前置，低频配置后置；代理等高级项默认折叠。
         </div>
       </div>
 
-      <div class="mt-6 grid gap-4 md:grid-cols-3">
+      <div class="mt-6 grid gap-4 md:grid-cols-2">
         <div class="glass-card-soft p-4">
           <div class="text-2xl">🧩</div>
           <div class="mt-3 text-sm font-medium text-white">独立配置分区</div>
@@ -29,11 +29,6 @@
           <div class="text-2xl">☁️</div>
           <div class="mt-3 text-sm font-medium text-white">动态同步配置</div>
           <div class="mt-1 text-xs leading-5 text-slate-400">可增删多个邮箱服务 / 启用远端目标，再按状态展示对应配置。</div>
-        </div>
-        <div class="glass-card-soft p-4">
-          <div class="text-2xl">📝</div>
-          <div class="mt-3 text-sm font-medium text-white">源文件编辑保留</div>
-          <div class="mt-1 text-xs leading-5 text-slate-400">可视化配置之外，仍可直接维护完整 .env 源文件。</div>
         </div>
       </div>
     </div>
@@ -284,78 +279,7 @@
           </div>
         </div>
 
-        <div v-if="syncSub2apiEnabled" class="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div class="mb-4">
-            <div class="text-sm font-medium text-white">Sub2API</div>
-            <div class="mt-1 text-xs leading-5 text-slate-400">
-              为已启用的 Sub2API 远端填写地址、管理员邮箱、密码和可选分组。
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div v-for="field in syncSub2apiConnectionFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                {{ field.prompt }}
-                <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
-                <div v-if="sub2apiFieldHint(field.key)" class="mt-1 font-mono text-[11px] font-normal text-slate-500 break-all">
-                  {{ sub2apiFieldHint(field.key) }}
-                </div>
-              </label>
-              <input
-                v-model="runtimeForm[field.key]"
-                :type="fieldInputType(field.key)"
-                :placeholder="field.default || ''"
-                class="input-dark"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div v-if="syncSub2apiEnabled" class="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div class="mb-4">
-            <div class="text-sm font-medium text-white">Sub2API 默认账号设置</div>
-            <div class="mt-1 text-xs leading-5 text-slate-400">
-              新创建的 Sub2API 账号会自动带上这些默认参数和可选代理绑定；已存在账号默认不覆盖，只有开启“覆盖账号设置”后才会在每次同步时强制统一（代理绑定仍只在新建账号时写入）。
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div v-for="field in syncSub2apiDefaultFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                {{ field.prompt }}
-                <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
-                <div v-if="sub2apiFieldHint(field.key)" class="mt-1 font-mono text-[11px] font-normal text-slate-500 break-all">
-                  {{ sub2apiFieldHint(field.key) }}
-                </div>
-              </label>
-              <select
-                v-if="isBooleanStringField(field.key)"
-                v-model="runtimeForm[field.key]"
-                class="input-dark"
-              >
-                <option value="true">true</option>
-                <option value="false">false</option>
-              </select>
-              <select
-                v-else-if="isWsModeField(field.key)"
-                v-model="runtimeForm[field.key]"
-                class="input-dark"
-              >
-                <option value="off">off</option>
-                <option value="ctx_pool">ctx_pool</option>
-                <option value="passthrough">passthrough</option>
-              </select>
-              <input
-                v-else
-                v-model="runtimeForm[field.key]"
-                :type="fieldInputType(field.key)"
-                :step="fieldInputStep(field.key)"
-                :placeholder="field.default || ''"
-                class="input-dark"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div v-if="!syncCpaEnabled && !syncSub2apiEnabled" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-400">
+        <div v-if="!syncCpaEnabled" class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-400">
           当前还没有启用任何远端同步目标。先打开上面的开关，再填写对应远端配置。
         </div>
 
@@ -467,67 +391,11 @@
       @refresh="$emit('refresh')"
       @admin-progress="$emit('admin-progress')"
     />
-
-    <div v-else-if="visualCategory === 'source'" class="glass-card space-y-4 p-6">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div class="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-            <span>📝</span>
-            Source Editor
-          </div>
-          <h3 class="section-heading">源文件编辑</h3>
-          <p class="section-subtitle">
-            直接编辑 .env 源文件。保存后会立即重载并校验邮箱服务 / 远端同步配置。
-          </p>
-        </div>
-        <div class="status-badge break-all font-mono text-[11px] text-slate-400">
-          {{ sourcePath || '.env' }}
-        </div>
-      </div>
-
-      <div
-        v-if="sourceMessage"
-        class="rounded-2xl px-4 py-3 text-sm border"
-        :class="sourceMessageClass"
-      >
-        {{ sourceMessage }}
-      </div>
-
-      <textarea
-        v-model="sourceContent"
-        rows="20"
-        spellcheck="false"
-        class="textarea-dark min-h-[420px] font-mono"
-        placeholder="在这里编辑 .env 内容"
-      />
-
-      <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <p class="text-xs leading-6 text-slate-400">
-          这里是原始文本模式，适合你直接粘贴或手工维护完整 .env。
-        </p>
-        <div class="flex gap-2">
-          <button
-            @click="loadSourceConfig"
-            :disabled="sourceLoading || sourceSaving"
-            class="btn-secondary"
-          >
-            {{ sourceLoading ? '加载中...' : '重新读取' }}
-          </button>
-          <button
-            @click="saveSourceConfig"
-            :disabled="sourceLoading || sourceSaving"
-            class="btn-primary"
-          >
-            {{ sourceSaving ? '保存中...' : '保存源文件' }}
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { api, setApiKey } from '../api.js'
 import Settings from './Settings.vue'
 
@@ -548,22 +416,8 @@ const runtimeCategoryKeys = {
   cloudmail: ['MAIL_PROVIDER', 'CLOUDMAIL_BASE_URL', 'CLOUDMAIL_EMAIL', 'CLOUDMAIL_PASSWORD', 'CLOUDMAIL_DOMAIN', 'CF_TEMP_EMAIL_BASE_URL', 'CF_TEMP_EMAIL_ADMIN_PASSWORD', 'CF_TEMP_EMAIL_DOMAIN'],
   sync: [
     'SYNC_TARGET_CPA',
-    'SYNC_TARGET_SUB2API',
     'CPA_URL',
     'CPA_KEY',
-    'SUB2API_URL',
-    'SUB2API_EMAIL',
-    'SUB2API_PASSWORD',
-    'SUB2API_GROUP',
-    'SUB2API_CONCURRENCY',
-    'SUB2API_PRIORITY',
-    'SUB2API_RATE_MULTIPLIER',
-    'SUB2API_AUTO_PAUSE_ON_EXPIRED',
-    'SUB2API_MODEL_WHITELIST',
-    'SUB2API_OPENAI_WS_MODE',
-    'SUB2API_OPENAI_PASSTHROUGH',
-    'SUB2API_OVERWRITE_ACCOUNT_SETTINGS',
-    'SUB2API_PROXY',
   ],
   proxy: ['PLAYWRIGHT_PROXY_URL', 'PLAYWRIGHT_PROXY_BYPASS'],
   security: ['API_KEY'],
@@ -583,7 +437,7 @@ const runtimeCategoryMeta = {
     badge: 'Remote Sync',
     title: '远端同步',
     description: '先选择启用的远端同步目标，再填写对应的连接信息。账号池操作会根据这里的启用状态决定同步到哪些远端。',
-    note: '支持同时启用 CPA 和 Sub2API；界面只显示当前已启用目标的详细配置。',
+    note: '界面只显示当前已启用目标的详细配置。',
   },
   proxy: {
     icon: '🛰️',
@@ -608,7 +462,6 @@ const visualCategories = [
   { key: 'security', label: '安全 / 访问控制', icon: '🔐' },
   { key: 'admin', label: '管理员 / 主号', icon: '👤' },
   { key: 'auto-check', label: '巡检设置', icon: '🔄' },
-  { key: 'source', label: '源文件编辑', icon: '📝' },
   { key: 'proxy', label: '代理 / 高级', icon: '🛰️' },
 ]
 
@@ -625,29 +478,7 @@ const runtimeSaved = ref(false)
 const runtimeMessage = ref('')
 const runtimeMessageClass = ref('')
 
-const sourcePath = ref('')
-const sourceContent = ref('')
-const sourceLoading = ref(false)
-const sourceSaving = ref(false)
-const sourceLoaded = ref(false)
-const sourceMessage = ref('')
-const sourceMessageClass = ref('')
 const runtimeRequiredKeys = new Set(['API_KEY'])
-const sub2apiFieldHints = {
-  SUB2API_URL: 'ENV: SUB2API_URL · Sub2API API base URL',
-  SUB2API_EMAIL: 'ENV: SUB2API_EMAIL · login.email',
-  SUB2API_PASSWORD: 'ENV: SUB2API_PASSWORD · login.password',
-  SUB2API_GROUP: 'ENV: SUB2API_GROUP · group_ids',
-  SUB2API_PROXY: 'ENV: SUB2API_PROXY · account.proxy_id（ID 或名称，仅账号池新建时写入）',
-  SUB2API_CONCURRENCY: 'ENV: SUB2API_CONCURRENCY · account.concurrency',
-  SUB2API_PRIORITY: 'ENV: SUB2API_PRIORITY · account.priority',
-  SUB2API_RATE_MULTIPLIER: 'ENV: SUB2API_RATE_MULTIPLIER · account.rate_multiplier',
-  SUB2API_AUTO_PAUSE_ON_EXPIRED: 'ENV: SUB2API_AUTO_PAUSE_ON_EXPIRED · account.auto_pause_on_expired',
-  SUB2API_MODEL_WHITELIST: 'ENV: SUB2API_MODEL_WHITELIST · credentials.model_mapping',
-  SUB2API_OPENAI_WS_MODE: 'ENV: SUB2API_OPENAI_WS_MODE · extra.openai_oauth_responses_websockets_v2_mode / enabled',
-  SUB2API_OPENAI_PASSTHROUGH: 'ENV: SUB2API_OPENAI_PASSTHROUGH · extra.openai_passthrough',
-  SUB2API_OVERWRITE_ACCOUNT_SETTINGS: 'ENV: SUB2API_OVERWRITE_ACCOUNT_SETTINGS · AutoTeam overwrite switch',
-}
 
 const mailServiceFieldMeta = {
   cloudmail: [
@@ -707,10 +538,6 @@ function fieldByKey(key) {
   return runtimeFields.value.find(field => field.key === key) || null
 }
 
-function sub2apiFieldHint(key) {
-  return sub2apiFieldHints[key] || ''
-}
-
 function fieldsByKeys(keys) {
   return keys
     .map(key => fieldByKey(key))
@@ -719,28 +546,11 @@ function fieldsByKeys(keys) {
 
 const securityFields = computed(() => fieldsByKeys(runtimeCategoryKeys.security))
 const proxyFields = computed(() => fieldsByKeys(runtimeCategoryKeys.proxy))
-const syncToggleFields = computed(() => fieldsByKeys(['SYNC_TARGET_CPA', 'SYNC_TARGET_SUB2API']))
+const syncToggleFields = computed(() => fieldsByKeys(['SYNC_TARGET_CPA']))
 const defaultMailService = computed(() => mailServices.value.find(service => service.id === mailServiceDefault.value) || null)
 
 const syncCpaEnabled = computed(() => String(runtimeForm.SYNC_TARGET_CPA || '').toLowerCase() === 'true')
-const syncSub2apiEnabled = computed(() => String(runtimeForm.SYNC_TARGET_SUB2API || '').toLowerCase() === 'true')
 const syncCpaFields = computed(() => syncCpaEnabled.value ? fieldsByKeys(['CPA_URL', 'CPA_KEY']) : [])
-const syncSub2apiConnectionFields = computed(() => syncSub2apiEnabled.value
-  ? fieldsByKeys(['SUB2API_URL', 'SUB2API_EMAIL', 'SUB2API_PASSWORD', 'SUB2API_GROUP'])
-  : [])
-const syncSub2apiDefaultFields = computed(() => syncSub2apiEnabled.value
-  ? fieldsByKeys([
-      'SUB2API_CONCURRENCY',
-      'SUB2API_PRIORITY',
-      'SUB2API_RATE_MULTIPLIER',
-      'SUB2API_AUTO_PAUSE_ON_EXPIRED',
-      'SUB2API_MODEL_WHITELIST',
-      'SUB2API_OPENAI_WS_MODE',
-      'SUB2API_OPENAI_PASSTHROUGH',
-      'SUB2API_OVERWRITE_ACCOUNT_SETTINGS',
-      'SUB2API_PROXY',
-    ])
-  : [])
 
 const currentRuntimeFields = computed(() => {
   if (selectedRuntimeCategory.value === 'security') {
@@ -750,14 +560,7 @@ const currentRuntimeFields = computed(() => {
 })
 
 const enabledSyncTargetsText = computed(() => {
-  const targets = []
-  if (syncCpaEnabled.value) {
-    targets.push('CPA')
-  }
-  if (syncSub2apiEnabled.value) {
-    targets.push('Sub2API')
-  }
-  return targets.length ? `已启用：${targets.join(' + ')}` : '当前未启用远端'
+  return syncCpaEnabled.value ? '已启用：CPA' : '当前未启用远端'
 })
 
 const currentRuntimeStatus = computed(() => {
@@ -769,17 +572,16 @@ const currentRuntimeStatus = computed(() => {
   }
 
   if (selectedRuntimeCategory.value === 'sync') {
-    if (!syncCpaEnabled.value && !syncSub2apiEnabled.value) {
+    if (!syncCpaEnabled.value) {
       return {
         label: '未启用',
         class: 'border-white/10 bg-white/5 text-slate-400',
       }
     }
 
-    const cpaReady = !syncCpaEnabled.value || syncCpaFields.value.every(field => !isRuntimeRequired(field) || field.configured)
-    const sub2apiReady = !syncSub2apiEnabled.value || syncSub2apiConnectionFields.value.every(field => !isRuntimeRequired(field) || field.configured)
+    const cpaReady = syncCpaFields.value.every(field => !isRuntimeRequired(field) || field.configured)
 
-    return cpaReady && sub2apiReady
+    return cpaReady
       ? {
           label: '已配置',
           class: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
@@ -852,48 +654,16 @@ function setRuntimeMessage(text, type = 'success') {
   }, 8000)
 }
 
-function setSourceMessage(text, type = 'success') {
-  sourceMessage.value = text
-  sourceMessageClass.value = type === 'success'
-    ? 'bg-green-500/10 text-green-400 border-green-500/20'
-    : 'bg-red-500/10 text-red-400 border-red-500/20'
-  window.clearTimeout(setSourceMessage._timer)
-  setSourceMessage._timer = window.setTimeout(() => {
-    sourceMessage.value = ''
-  }, 8000)
-}
-
 function fieldInputType(key) {
-  if (['SUB2API_CONCURRENCY', 'SUB2API_PRIORITY', 'SUB2API_RATE_MULTIPLIER'].includes(key)) {
-    return 'number'
-  }
   return key.includes('PASSWORD') || key.includes('KEY') ? 'password' : 'text'
 }
 
 function isToggleField(key) {
-  return key === 'SYNC_TARGET_CPA' || key === 'SYNC_TARGET_SUB2API'
+  return key === 'SYNC_TARGET_CPA'
 }
 
 function isBooleanStringField(key) {
-  return isToggleField(key) || [
-    'SUB2API_AUTO_PAUSE_ON_EXPIRED',
-    'SUB2API_OPENAI_PASSTHROUGH',
-    'SUB2API_OVERWRITE_ACCOUNT_SETTINGS',
-  ].includes(key)
-}
-
-function isWsModeField(key) {
-  return key === 'SUB2API_OPENAI_WS_MODE'
-}
-
-function fieldInputStep(key) {
-  if (key === 'SUB2API_RATE_MULTIPLIER') {
-    return '0.001'
-  }
-  if (key === 'SUB2API_CONCURRENCY' || key === 'SUB2API_PRIORITY') {
-    return '1'
-  }
-  return undefined
+  return isToggleField(key)
 }
 
 function createMailService(type = 'cloudmail') {
@@ -1003,10 +773,6 @@ function normalizeRuntimeFieldValue(field) {
   if (isBooleanStringField(field?.key)) {
     return String(value).toLowerCase() === 'true' ? 'true' : 'false'
   }
-  if (isWsModeField(field?.key)) {
-    const mode = String(value || '').toLowerCase()
-    return ['off', 'ctx_pool', 'passthrough'].includes(mode) ? mode : 'off'
-  }
   return value
 }
 
@@ -1069,44 +835,6 @@ async function saveRuntimeConfig() {
     runtimeSaving.value = false
   }
 }
-
-async function loadSourceConfig() {
-  sourceLoading.value = true
-  try {
-    const result = await api.getRuntimeConfigSource()
-    sourcePath.value = result.path || '.env'
-    sourceContent.value = result.content || ''
-    sourceLoaded.value = true
-  } catch (e) {
-    console.error('加载源文件失败:', e)
-    setSourceMessage('加载源文件失败: ' + e.message, 'error')
-  } finally {
-    sourceLoading.value = false
-  }
-}
-
-async function saveSourceConfig() {
-  sourceSaving.value = true
-  try {
-    const result = await api.saveRuntimeConfigSource({ content: sourceContent.value })
-    if (result.api_key) {
-      setApiKey(result.api_key)
-    }
-    setSourceMessage(result.message || '源文件保存成功')
-    await Promise.all([loadSourceConfig(), loadRuntimeConfig()])
-    emit('refresh')
-  } catch (e) {
-    setSourceMessage(e.message, 'error')
-  } finally {
-    sourceSaving.value = false
-  }
-}
-
-watch(visualCategory, async (next) => {
-  if (next === 'source' && !sourceLoaded.value) {
-    await loadSourceConfig()
-  }
-})
 
 onMounted(async () => {
   await loadRuntimeConfig()

@@ -44,8 +44,6 @@ cp .env.example .env
 | `AUTO_CHECK_INTERVAL` | 巡检间隔（秒） | 否（默认 `300`） |
 | `AUTO_CHECK_TARGET_SEATS` | 自动巡检目标 Team 总 seat 数 | 否（默认 `5`） |
 | `AUTO_CHECK_MIN_LOW` | 至少几个账号低于阈值才触发 | 否（默认 `2`） |
-| `AUTO_CHECK_RETRY_ADD_PHONE` | 是否自动重试 `add_phone`（手机号验证） | 否（默认 `true`） |
-| `AUTO_CHECK_ADD_PHONE_MAX_RETRIES` | `add_phone` 最大自动重试次数 | 否（默认 `3`） |
 
 > **2-seat 注意事项**
 >
@@ -178,8 +176,6 @@ PLAYWRIGHT_PROXY_URL=http://username:password@host.docker.internal:1080
 ```env
 AUTO_CHECK_INTERVAL=300  # 5 分钟
 AUTO_CHECK_TARGET_SEATS=5
-AUTO_CHECK_RETRY_ADD_PHONE=true
-AUTO_CHECK_ADD_PHONE_MAX_RETRIES=3
 ```
 
 Windows / macOS 下也会按 UTF-8 正常读取。

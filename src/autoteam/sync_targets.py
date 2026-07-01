@@ -1,4 +1,4 @@
-"""统一远端同步目标分发：CPA / Sub2API。"""
+"""统一远端同步目标分发：CPA。"""
 
 from __future__ import annotations
 
@@ -11,18 +11,12 @@ from autoteam.textio import parse_env_value
 logger = logging.getLogger(__name__)
 
 SYNC_TARGET_CPA = "cpa"
-SYNC_TARGET_SUB2API = "sub2api"
 
 _SYNC_TARGET_META = {
     SYNC_TARGET_CPA: {
         "label": "CPA",
         "toggle_key": "SYNC_TARGET_CPA",
         "config_keys": ("CPA_URL", "CPA_KEY"),
-    },
-    SYNC_TARGET_SUB2API: {
-        "label": "Sub2API",
-        "toggle_key": "SYNC_TARGET_SUB2API",
-        "config_keys": ("SUB2API_URL", "SUB2API_EMAIL", "SUB2API_PASSWORD"),
     },
 }
 
@@ -123,11 +117,6 @@ def sync_to_configured_targets():
 
         results[SYNC_TARGET_CPA] = sync_to_cpa()
 
-    if SYNC_TARGET_SUB2API in enabled_targets:
-        from autoteam.sub2api_sync import sync_to_sub2api
-
-        results[SYNC_TARGET_SUB2API] = sync_to_sub2api()
-
     return results
 
 
@@ -139,11 +128,6 @@ def sync_main_codex_to_configured_targets(filepath: str):
         from autoteam.cpa_sync import sync_main_codex_to_cpa
 
         results[SYNC_TARGET_CPA] = sync_main_codex_to_cpa(filepath)
-
-    if SYNC_TARGET_SUB2API in enabled_targets:
-        from autoteam.sub2api_sync import sync_main_codex_to_sub2api
-
-        results[SYNC_TARGET_SUB2API] = sync_main_codex_to_sub2api(filepath)
 
     return results
 
@@ -160,15 +144,6 @@ def delete_main_codex_from_configured_targets(*, include_disabled: bool = False)
         except Exception as exc:
             logger.warning("[CPA] 删除主号失败: %s", exc)
             results[SYNC_TARGET_CPA] = {"deleted": [], "count": 0, "error": str(exc)}
-
-    if SYNC_TARGET_SUB2API in targets:
-        from autoteam.sub2api_sync import delete_main_codex_from_sub2api
-
-        try:
-            results[SYNC_TARGET_SUB2API] = delete_main_codex_from_sub2api()
-        except Exception as exc:
-            logger.warning("[Sub2API] 删除主号失败: %s", exc)
-            results[SYNC_TARGET_SUB2API] = {"deleted": [], "count": 0, "error": str(exc)}
 
     return results
 
@@ -195,14 +170,5 @@ def delete_account_from_configured_targets(
         except Exception as exc:
             logger.warning("[CPA] 删除账号 %s 失败: %s", email, exc)
             results[SYNC_TARGET_CPA] = {"deleted": [], "count": 0, "error": str(exc)}
-
-    if SYNC_TARGET_SUB2API in targets:
-        from autoteam.sub2api_sync import delete_account_from_sub2api
-
-        try:
-            results[SYNC_TARGET_SUB2API] = delete_account_from_sub2api(email, auth_names=auth_names or [])
-        except Exception as exc:
-            logger.warning("[Sub2API] 删除账号 %s 失败: %s", email, exc)
-            results[SYNC_TARGET_SUB2API] = {"deleted": [], "count": 0, "error": str(exc)}
 
     return results

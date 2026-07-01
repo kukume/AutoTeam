@@ -142,7 +142,7 @@ def test_delete_managed_account_preserves_remote_cleanup_errors(tmp_path, monkey
     monkeypatch.setattr(
         account_ops,
         "delete_account_from_configured_targets",
-        lambda *args, **kwargs: {"sub2api": {"deleted": [], "count": 0, "error": "service offline"}},
+        lambda *args, **kwargs: {"cpa": {"deleted": [], "count": 0, "error": "service offline"}},
     )
     monkeypatch.setattr(account_ops, "sync_to_cpa", lambda: None)
 
@@ -154,4 +154,4 @@ def test_delete_managed_account_preserves_remote_cleanup_errors(tmp_path, monkey
     )
 
     assert cleanup["local_record"] is True
-    assert cleanup["remote_errors"] == {"sub2api": "service offline"}
+    assert cleanup["remote_errors"] == {"cpa": "service offline"}

@@ -96,7 +96,6 @@ def delete_managed_account(
         "local_record": False,
         "local_auth_files": [],
         "cpa_files": [],
-        "sub2api_accounts": [],
         "remote_errors": {},
         "team_member_removed": False,
         "invite_removed": False,
@@ -170,7 +169,6 @@ def delete_managed_account(
             include_disabled=True,
         )
         cleanup["cpa_files"] = list((remote_cleanup.get("cpa") or {}).get("deleted", []))
-        cleanup["sub2api_accounts"] = list((remote_cleanup.get("sub2api") or {}).get("deleted", []))
         cleanup["remote_errors"] = _extract_remote_cleanup_errors(remote_cleanup)
 
         if acc:

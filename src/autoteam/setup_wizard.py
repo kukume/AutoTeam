@@ -42,20 +42,6 @@ REQUIRED_CONFIGS = [
     ("SYNC_TARGET_CPA", "启用 CPA 同步（true/false）", "", True),
     ("CPA_URL", "CPA (CLIProxyAPI) 地址", "http://127.0.0.1:8317", True),
     ("CPA_KEY", "CPA 管理密钥", "", True),
-    ("SYNC_TARGET_SUB2API", "启用 Sub2API 同步（true/false）", "", True),
-    ("SUB2API_URL", "Sub2API 地址", "", True),
-    ("SUB2API_EMAIL", "Sub2API 管理员邮箱", "", True),
-    ("SUB2API_PASSWORD", "Sub2API 管理员密码", "", True),
-    ("SUB2API_GROUP", "Sub2API 分组（名称或 ID，可选）", "", True),
-    ("SUB2API_PROXY", "Sub2API 默认账号代理（ID 或名称，可选，仅账号池新建时写入）", "", True),
-    ("SUB2API_CONCURRENCY", "Sub2API 默认并发数", "10", True),
-    ("SUB2API_PRIORITY", "Sub2API 默认优先级", "1", True),
-    ("SUB2API_RATE_MULTIPLIER", "Sub2API 默认倍率", "1", True),
-    ("SUB2API_AUTO_PAUSE_ON_EXPIRED", "Sub2API 额度到期自动暂停（true/false）", "true", True),
-    ("SUB2API_MODEL_WHITELIST", "Sub2API 模型白名单（逗号分隔，可选）", "", True),
-    ("SUB2API_OPENAI_WS_MODE", "Sub2API OpenAI WS 模式（off/ctx_pool/passthrough）", "off", True),
-    ("SUB2API_OPENAI_PASSTHROUGH", "Sub2API OpenAI passthrough（true/false）", "false", True),
-    ("SUB2API_OVERWRITE_ACCOUNT_SETTINGS", "Sub2API 同步时覆盖账号默认设置（true/false）", "false", True),
     ("PLAYWRIGHT_PROXY_URL", "Playwright 浏览器代理 URL（可选，如 socks5://host:port）", "", True),
     ("PLAYWRIGHT_PROXY_BYPASS", "Playwright 代理绕过列表（可选，如 localhost,127.0.0.1）", "", True),
     ("API_KEY", "API 鉴权密钥（回车自动生成）", "", False),
@@ -349,21 +335,4 @@ def _verify_cpa():
         return False
 
 
-def _verify_sub2api():
-    """验证 Sub2API 配置是否正确：管理员登录并获取账号列表。"""
-    sub2api_url = os.environ.get("SUB2API_URL", "")
-    sub2api_email = os.environ.get("SUB2API_EMAIL", "")
-    sub2api_password = os.environ.get("SUB2API_PASSWORD", "")
 
-    if not sub2api_url or not sub2api_email or not sub2api_password:
-        return True  # 没配就跳过
-
-    logger.info("[验证] Sub2API 配置...")
-
-    try:
-        from autoteam.sub2api_sync import verify_sub2api_connection
-
-        return verify_sub2api_connection()
-    except Exception as e:
-        logger.error("[验证] Sub2API 连接失败: %s", e)
-        return False

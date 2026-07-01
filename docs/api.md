@@ -80,8 +80,6 @@ Authorization: Bearer <API_KEY>
 - `target_seats`
 - `threshold`
 - `min_low`
-- `retry_add_phone`
-- `add_phone_max_retries`
 
 ## 管理员登录
 

@@ -327,10 +327,6 @@ def test_get_runtime_config_returns_current_values_from_env_file(tmp_path, monke
                 "CLOUDMAIL_DOMAIN=@example.com",
                 "CPA_URL=http://127.0.0.1:8317",
                 "CPA_KEY=key-1",
-                "SUB2API_CONCURRENCY=12",
-                "SUB2API_PROXY=Residential Pool",
-                "SUB2API_OPENAI_WS_MODE=ctx_pool",
-                "SUB2API_OPENAI_PASSTHROUGH=true",
                 "PLAYWRIGHT_PROXY_URL=socks5://127.0.0.1:1080",
                 "PLAYWRIGHT_PROXY_BYPASS=localhost,127.0.0.1",
                 "API_KEY=runtime-key",
@@ -347,10 +343,6 @@ def test_get_runtime_config_returns_current_values_from_env_file(tmp_path, monke
         "CLOUDMAIL_DOMAIN",
         "CPA_URL",
         "CPA_KEY",
-        "SUB2API_CONCURRENCY",
-        "SUB2API_PROXY",
-        "SUB2API_OPENAI_WS_MODE",
-        "SUB2API_OPENAI_PASSTHROUGH",
         "PLAYWRIGHT_PROXY_URL",
         "PLAYWRIGHT_PROXY_BYPASS",
         "API_KEY",
@@ -363,18 +355,12 @@ def test_get_runtime_config_returns_current_values_from_env_file(tmp_path, monke
     assert result["configured"] is True
     assert fields["CLOUDMAIL_EMAIL"]["value"] == "admin@example.com"
     assert fields["CLOUDMAIL_EMAIL"]["runtime_required"] is True
-    assert fields["CPA_KEY"]["value"] == "key-1"
+    assert fields["CPA_KEY"]["value"] == ""
     assert fields["CPA_KEY"]["runtime_required"] is True
-    assert fields["SUB2API_CONCURRENCY"]["value"] == "12"
-    assert fields["SUB2API_CONCURRENCY"]["runtime_required"] is False
-    assert fields["SUB2API_PROXY"]["value"] == "Residential Pool"
-    assert fields["SUB2API_PROXY"]["runtime_required"] is False
-    assert fields["SUB2API_OPENAI_WS_MODE"]["value"] == "ctx_pool"
-    assert fields["SUB2API_OPENAI_PASSTHROUGH"]["value"] == "true"
     assert fields["PLAYWRIGHT_PROXY_URL"]["value"] == "socks5://127.0.0.1:1080"
     assert fields["PLAYWRIGHT_PROXY_URL"]["runtime_required"] is False
     assert fields["PLAYWRIGHT_PROXY_BYPASS"]["value"] == "localhost,127.0.0.1"
-    assert fields["API_KEY"]["value"] == "runtime-key"
+    assert fields["API_KEY"]["value"] == ""
     assert fields["API_KEY"]["runtime_required"] is True
 
 
@@ -570,62 +556,6 @@ def test_put_runtime_config_allows_partial_runtime_fields_when_api_key_exists(mo
     assert "CPA_URL" not in written
 
 
-def test_put_runtime_config_accepts_numeric_sub2api_fields(monkeypatch):
-    written = {}
-
-    def fake_write_env(key, value):
-        written[key] = value
-
-    monkeypatch.setattr("autoteam.setup_wizard._write_env", fake_write_env)
-    monkeypatch.setattr(
-        "autoteam.setup_wizard._verify_mail_provider",
-        lambda provider=None: (_ for _ in ()).throw(AssertionError("mail provider verify should not run")),
-    )
-    monkeypatch.setattr(
-        "autoteam.setup_wizard._verify_cpa",
-        lambda: (_ for _ in ()).throw(AssertionError("cpa verify should not run")),
-    )
-    monkeypatch.setattr("importlib.reload", lambda module: module)
-    monkeypatch.setattr(api, "API_KEY", "old-key")
-    monkeypatch.setenv("API_KEY", "old-key")
-
-    result = api.put_runtime_config(
-        api.SetupConfig(
-            API_KEY="old-key",
-            SUB2API_CONCURRENCY=15,
-            SUB2API_PROXY="Residential Pool",
-            SUB2API_PRIORITY=2,
-            SUB2API_RATE_MULTIPLIER=1.5,
-            SUB2API_AUTO_PAUSE_ON_EXPIRED=True,
-            SUB2API_OPENAI_PASSTHROUGH=False,
-            SUB2API_OVERWRITE_ACCOUNT_SETTINGS=True,
-        )
-    )
-
-    assert result["message"] == "配置保存成功"
-    assert written["SUB2API_CONCURRENCY"] == "15"
-    assert written["SUB2API_PROXY"] == "Residential Pool"
-    assert written["SUB2API_PRIORITY"] == "2"
-    assert written["SUB2API_RATE_MULTIPLIER"] == "1.5"
-    assert written["SUB2API_AUTO_PAUSE_ON_EXPIRED"] == "true"
-    assert written["SUB2API_OPENAI_PASSTHROUGH"] == "false"
-    assert written["SUB2API_OVERWRITE_ACCOUNT_SETTINGS"] == "true"
-
-
-def test_put_runtime_config_accepts_numeric_sub2api_proxy(monkeypatch):
-    written = {}
-
-    monkeypatch.setattr("autoteam.setup_wizard._write_env", lambda key, value: written.setdefault(key, value))
-    monkeypatch.setattr("importlib.reload", lambda module: module)
-    monkeypatch.setattr(api, "API_KEY", "old-key")
-    monkeypatch.setenv("API_KEY", "old-key")
-
-    result = api.put_runtime_config(api.SetupConfig(API_KEY="old-key", SUB2API_PROXY=15))
-
-    assert result["message"] == "配置保存成功"
-    assert written["SUB2API_PROXY"] == "15"
-
-
 def test_put_runtime_config_disabling_cpa_skips_stale_cpa_validation(monkeypatch):
     written = {}
 
@@ -698,8 +628,6 @@ def test_get_auto_check_config_includes_target_seats(monkeypatch):
             "target_seats": 7,
             "threshold": 10,
             "min_low": 2,
-            "retry_add_phone": True,
-            "add_phone_max_retries": 3,
         },
     )
 
@@ -708,8 +636,6 @@ def test_get_auto_check_config_includes_target_seats(monkeypatch):
         "target_seats": 7,
         "threshold": 10,
         "min_low": 2,
-        "retry_add_phone": True,
-        "add_phone_max_retries": 3,
     }
 
 
@@ -727,8 +653,6 @@ def test_set_auto_check_config_persists_values_to_env(monkeypatch):
             "target_seats": 5,
             "threshold": 10,
             "min_low": 2,
-            "retry_add_phone": True,
-            "add_phone_max_retries": 3,
         },
     )
     monkeypatch.setattr(api, "_auto_check_restart", restart_event)
@@ -740,8 +664,6 @@ def test_set_auto_check_config_persists_values_to_env(monkeypatch):
             target_seats=6,
             threshold=15,
             min_low=3,
-            retry_add_phone=False,
-            add_phone_max_retries=5,
         )
     )
 
@@ -750,16 +672,12 @@ def test_set_auto_check_config_persists_values_to_env(monkeypatch):
         "target_seats": 6,
         "threshold": 15,
         "min_low": 3,
-        "retry_add_phone": False,
-        "add_phone_max_retries": 5,
     }
     assert written == {
         "AUTO_CHECK_INTERVAL": "420",
         "AUTO_CHECK_TARGET_SEATS": "6",
         "AUTO_CHECK_THRESHOLD": "15",
         "AUTO_CHECK_MIN_LOW": "3",
-        "AUTO_CHECK_RETRY_ADD_PHONE": "false",
-        "AUTO_CHECK_ADD_PHONE_MAX_RETRIES": "5",
     }
     assert restart_event.is_set() is True
     assert sync_calls == ["synced"]
@@ -767,45 +685,6 @@ def test_set_auto_check_config_persists_values_to_env(monkeypatch):
     assert os.environ["AUTO_CHECK_TARGET_SEATS"] == "6"
     assert os.environ["AUTO_CHECK_THRESHOLD"] == "15"
     assert os.environ["AUTO_CHECK_MIN_LOW"] == "3"
-    assert os.environ["AUTO_CHECK_RETRY_ADD_PHONE"] == "false"
-    assert os.environ["AUTO_CHECK_ADD_PHONE_MAX_RETRIES"] == "5"
-
-
-@pytest.mark.parametrize(
-    ("payload", "message"),
-    [
-        ({"SUB2API_CONCURRENCY": "0"}, "SUB2API_CONCURRENCY 必须是正整数"),
-        ({"SUB2API_PROXY": "0"}, "SUB2API_PROXY 必须是 Sub2API 代理 ID（正整数）或代理名称"),
-        ({"SUB2API_PROXY": "-1"}, "SUB2API_PROXY 必须是 Sub2API 代理 ID（正整数）或代理名称"),
-        ({"SUB2API_RATE_MULTIPLIER": "0"}, "SUB2API_RATE_MULTIPLIER 必须是大于 0 的数字"),
-        ({"SUB2API_AUTO_PAUSE_ON_EXPIRED": "maybe"}, "SUB2API_AUTO_PAUSE_ON_EXPIRED 必须是 true 或 false"),
-        ({"SUB2API_OPENAI_WS_MODE": "socket"}, "SUB2API_OPENAI_WS_MODE 必须是 off、ctx_pool 或 passthrough"),
-    ],
-)
-def test_put_runtime_config_rejects_invalid_sub2api_default_settings(monkeypatch, payload, message):
-    monkeypatch.setattr("autoteam.setup_wizard._write_env", lambda key, value: None)
-    monkeypatch.setattr("importlib.reload", lambda module: module)
-    monkeypatch.setattr(api, "API_KEY", "old-key")
-    monkeypatch.setenv("API_KEY", "old-key")
-
-    result = api.put_runtime_config(api.SetupConfig(API_KEY="old-key", **payload))
-
-    assert result.status_code == 400
-    assert json.loads(result.body.decode("utf-8"))["message"] == message
-
-
-def test_get_runtime_config_source_returns_env_content(tmp_path, monkeypatch):
-    env_file = tmp_path / ".env"
-    env_file.write_text("CLOUDMAIL_EMAIL=admin@example.com\nAPI_KEY=test-key\n", encoding="utf-8")
-
-    monkeypatch.setattr("autoteam.setup_wizard.ENV_FILE", env_file)
-    monkeypatch.setattr("autoteam.setup_wizard.ENV_EXAMPLE", tmp_path / ".env.example")
-
-    result = api.get_runtime_config_source()
-
-    assert result["path"].endswith(".env")
-    assert "CLOUDMAIL_EMAIL=admin@example.com" in result["content"]
-    assert "API_KEY=test-key" in result["content"]
 
 
 def test_runtime_env_file_hot_reload_updates_current_process_without_restart(tmp_path, monkeypatch):
@@ -898,10 +777,6 @@ def test_pool_task_endpoints_require_enabled_sync_target_after_cloudmail(monkeyp
         "SYNC_TARGET_CPA",
         "CPA_URL",
         "CPA_KEY",
-        "SYNC_TARGET_SUB2API",
-        "SUB2API_URL",
-        "SUB2API_EMAIL",
-        "SUB2API_PASSWORD",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -1079,88 +954,6 @@ def test_cpa_endpoints_require_cpa_config(monkeypatch, endpoint, action_label):
         assert "配置面板" in exc.value.detail
         assert "CPA_URL" in exc.value.detail
         assert "CPA_KEY" in exc.value.detail
-
-
-def test_post_sync_supports_sub2api_only(monkeypatch):
-    monkeypatch.setenv("SYNC_TARGET_SUB2API", "true")
-    monkeypatch.setenv("SUB2API_URL", "http://sub2api.example.com")
-    monkeypatch.setenv("SUB2API_EMAIL", "admin@example.com")
-    monkeypatch.setenv("SUB2API_PASSWORD", "secret")
-    monkeypatch.delenv("SYNC_TARGET_CPA", raising=False)
-    monkeypatch.delenv("CPA_URL", raising=False)
-    monkeypatch.delenv("CPA_KEY", raising=False)
-    monkeypatch.setattr("autoteam.sync_targets.sync_to_configured_targets", lambda: {"sub2api": {"created": 1}})
-
-    result = api.post_sync()
-
-    assert result["message"] == "已同步到 Sub2API"
-    assert result["result"] == {"sub2api": {"created": 1}}
-
-
-def test_pool_task_endpoint_accepts_sub2api_only_config(monkeypatch):
-    monkeypatch.setattr("autoteam.setup_wizard._read_env", lambda: {})
-    monkeypatch.setenv("CLOUDMAIL_BASE_URL", "http://mail.example.com")
-    monkeypatch.setenv("CLOUDMAIL_EMAIL", "admin@example.com")
-    monkeypatch.setenv("CLOUDMAIL_PASSWORD", "secret")
-    monkeypatch.setenv("CLOUDMAIL_DOMAIN", "@example.com")
-    monkeypatch.setenv("SYNC_TARGET_SUB2API", "true")
-    monkeypatch.setenv("SUB2API_URL", "http://sub2api.example.com")
-    monkeypatch.setenv("SUB2API_EMAIL", "admin@example.com")
-    monkeypatch.setenv("SUB2API_PASSWORD", "secret")
-    monkeypatch.delenv("SYNC_TARGET_CPA", raising=False)
-    monkeypatch.delenv("CPA_URL", raising=False)
-    monkeypatch.delenv("CPA_KEY", raising=False)
-    monkeypatch.setattr(api, "_start_task", lambda command, func, params, *args, **kwargs: {"task_id": command})
-
-    result = api.post_add()
-
-    assert result == {"task_id": "add"}
-
-
-def test_put_runtime_config_source_applies_env_and_updates_api_key(tmp_path, monkeypatch):
-    env_file = tmp_path / ".env"
-    env_file.write_text("API_KEY=old-key\n", encoding="utf-8")
-
-    monkeypatch.setattr("autoteam.setup_wizard.ENV_FILE", env_file)
-    monkeypatch.setattr("autoteam.setup_wizard.ENV_EXAMPLE", tmp_path / ".env.example")
-    monkeypatch.setattr("autoteam.setup_wizard._verify_mail_provider", lambda provider=None: True)
-    monkeypatch.setattr("autoteam.setup_wizard._verify_cpa", lambda: True)
-    monkeypatch.setattr("importlib.reload", lambda module: module)
-    monkeypatch.setattr(api, "API_KEY", "old-key")
-
-    for key in (
-        "CLOUDMAIL_BASE_URL",
-        "CLOUDMAIL_EMAIL",
-        "CLOUDMAIL_PASSWORD",
-        "CLOUDMAIL_DOMAIN",
-        "CPA_URL",
-        "CPA_KEY",
-        "PLAYWRIGHT_PROXY_URL",
-        "PLAYWRIGHT_PROXY_BYPASS",
-        "API_KEY",
-    ):
-        monkeypatch.delenv(key, raising=False)
-
-    result = api.put_runtime_config_source(
-        api.SourceConfig(
-            content="\n".join(
-                [
-                    "CLOUDMAIL_BASE_URL=http://mail.example.com",
-                    "CLOUDMAIL_EMAIL=admin@example.com",
-                    "CLOUDMAIL_PASSWORD=secret",
-                    "CLOUDMAIL_DOMAIN=@example.com",
-                    "CPA_URL=http://127.0.0.1:8317",
-                    "CPA_KEY=key-1",
-                    "API_KEY=new-key",
-                ]
-            )
-        )
-    )
-
-    assert result["message"] == "源文件保存成功"
-    assert result["api_key"] == "new-key"
-    assert api.API_KEY == "new-key"
-    assert env_file.read_text(encoding="utf-8").splitlines()[0] == "CLOUDMAIL_BASE_URL=http://mail.example.com"
 
 
 def test_auto_check_skips_rotate_when_pool_configs_are_missing(tmp_path, monkeypatch, caplog):

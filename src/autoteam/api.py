@@ -103,27 +103,9 @@ class SetupConfig(BaseModel):
     SYNC_TARGET_CPA: str | bool = ""
     CPA_URL: str = "http://127.0.0.1:8317"
     CPA_KEY: str = ""
-    SYNC_TARGET_SUB2API: str | bool = ""
-    SUB2API_URL: str = ""
-    SUB2API_EMAIL: str = ""
-    SUB2API_PASSWORD: str = ""
-    SUB2API_GROUP: str = ""
-    SUB2API_PROXY: str | int = ""
-    SUB2API_CONCURRENCY: str | int = "10"
-    SUB2API_PRIORITY: str | int = "1"
-    SUB2API_RATE_MULTIPLIER: str | int | float = "1"
-    SUB2API_AUTO_PAUSE_ON_EXPIRED: str | bool = "true"
-    SUB2API_MODEL_WHITELIST: str = ""
-    SUB2API_OPENAI_WS_MODE: str = "off"
-    SUB2API_OPENAI_PASSTHROUGH: str | bool = "false"
-    SUB2API_OVERWRITE_ACCOUNT_SETTINGS: str | bool = "false"
     PLAYWRIGHT_PROXY_URL: str = ""
     PLAYWRIGHT_PROXY_BYPASS: str = ""
     API_KEY: str = ""
-
-
-class SourceConfig(BaseModel):
-    content: str = ""
 
 
 _RUNTIME_CONFIG_CLEARABLE_FIELDS = {
@@ -137,9 +119,6 @@ _RUNTIME_CONFIG_CLEARABLE_FIELDS = {
     "CF_TEMP_EMAIL_BASE_URL",
     "CF_TEMP_EMAIL_ADMIN_PASSWORD",
     "CF_TEMP_EMAIL_DOMAIN",
-    "SUB2API_GROUP",
-    "SUB2API_PROXY",
-    "SUB2API_MODEL_WHITELIST",
     "PLAYWRIGHT_PROXY_URL",
     "PLAYWRIGHT_PROXY_BYPASS",
 }
@@ -151,8 +130,14 @@ _CF_TEMP_EMAIL_REQUIRED_KEYS = (
     "CF_TEMP_EMAIL_DOMAIN",
 )
 _CPA_REQUIRED_KEYS = ("CPA_URL", "CPA_KEY")
-_SUB2API_REQUIRED_KEYS = ("SUB2API_URL", "SUB2API_EMAIL", "SUB2API_PASSWORD")
-_SYNC_TARGET_TOGGLE_KEYS = ("SYNC_TARGET_CPA", "SYNC_TARGET_SUB2API")
+_SYNC_TARGET_TOGGLE_KEYS = ("SYNC_TARGET_CPA",)
+
+_SENSITIVE_FIELD_KEYS = {
+    "CLOUDMAIL_PASSWORD",
+    "CF_TEMP_EMAIL_ADMIN_PASSWORD",
+    "CPA_KEY",
+    "API_KEY",
+}
 
 _ALL_RUNTIME_ENV_KEYS = [
     "MAIL_PROVIDER",
@@ -169,20 +154,6 @@ _ALL_RUNTIME_ENV_KEYS = [
     "SYNC_TARGET_CPA",
     "CPA_URL",
     "CPA_KEY",
-    "SYNC_TARGET_SUB2API",
-    "SUB2API_URL",
-    "SUB2API_EMAIL",
-    "SUB2API_PASSWORD",
-    "SUB2API_GROUP",
-    "SUB2API_PROXY",
-    "SUB2API_CONCURRENCY",
-    "SUB2API_PRIORITY",
-    "SUB2API_RATE_MULTIPLIER",
-    "SUB2API_AUTO_PAUSE_ON_EXPIRED",
-    "SUB2API_MODEL_WHITELIST",
-    "SUB2API_OPENAI_WS_MODE",
-    "SUB2API_OPENAI_PASSTHROUGH",
-    "SUB2API_OVERWRITE_ACCOUNT_SETTINGS",
     "EMAIL_POLL_INTERVAL",
     "EMAIL_POLL_TIMEOUT",
     "API_KEY",
@@ -191,9 +162,6 @@ _ALL_RUNTIME_ENV_KEYS = [
     "AUTO_CHECK_THRESHOLD",
     "AUTO_CHECK_MIN_LOW",
     "PLAYWRIGHT_PROXY_URL",
-    "PLAYWRIGHT_PROXY_SERVER",
-    "PLAYWRIGHT_PROXY_USERNAME",
-    "PLAYWRIGHT_PROXY_PASSWORD",
     "PLAYWRIGHT_PROXY_BYPASS",
 ]
 _RUNTIME_ENV_BASE = {key: os.environ.get(key) for key in _ALL_RUNTIME_ENV_KEYS}
@@ -246,8 +214,6 @@ def _runtime_required_keys(env: dict[str, str] | None = None) -> set[str]:
     required.add("API_KEY")
     if states.get("cpa"):
         required.update(_CPA_REQUIRED_KEYS)
-    if states.get("sub2api"):
-        required.update(_SUB2API_REQUIRED_KEYS)
     return required
 
 
@@ -329,7 +295,7 @@ def _require_pool_operation_configs(action_label: str):
     enabled_targets = get_enabled_sync_targets(env)
     if not enabled_targets:
         raise HTTPException(
-            status_code=400, detail=f"{action_label} 前请先在配置面板启用至少一个远端同步目标（CPA 或 Sub2API）"
+            status_code=400, detail=f"{action_label} 前请先在配置面板启用至少一个远端同步目标（CPA）"
         )
 
     missing = _missing_runtime_configs(
@@ -337,7 +303,7 @@ def _require_pool_operation_configs(action_label: str):
             key
             for target in enabled_targets
             for key in (
-                _CPA_REQUIRED_KEYS if target == "cpa" else _SUB2API_REQUIRED_KEYS if target == "sub2api" else ()
+                _CPA_REQUIRED_KEYS if target == "cpa" else ()
             )
         ],
         env=env,
@@ -386,7 +352,7 @@ def _require_sync_target_configs(action_label: str):
     enabled_targets = get_enabled_sync_targets(env)
     if not enabled_targets:
         raise HTTPException(
-            status_code=400, detail=f"{action_label} 前请先在配置面板启用至少一个远端同步目标（CPA 或 Sub2API）"
+            status_code=400, detail=f"{action_label} 前请先在配置面板启用至少一个远端同步目标（CPA）"
         )
 
     missing = _missing_runtime_configs(
@@ -394,7 +360,7 @@ def _require_sync_target_configs(action_label: str):
             key
             for target in enabled_targets
             for key in (
-                _CPA_REQUIRED_KEYS if target == "cpa" else _SUB2API_REQUIRED_KEYS if target == "sub2api" else ()
+                _CPA_REQUIRED_KEYS if target == "cpa" else ()
             )
         ],
         env=env,
@@ -424,9 +390,6 @@ def _collect_config_fields(*, include_values: bool = False, configs=None):
         if key == "SYNC_TARGET_CPA":
             raw_value = "true" if target_states.get("cpa") else "false"
             configured = True
-        elif key == "SYNC_TARGET_SUB2API":
-            raw_value = "true" if target_states.get("sub2api") else "false"
-            configured = True
         elif key == "MAIL_PROVIDER":
             raw_value = mail_provider
             configured = True
@@ -443,7 +406,10 @@ def _collect_config_fields(*, include_values: bool = False, configs=None):
             "configured": configured,
         }
         if include_values:
-            field["value"] = raw_value if raw_value != "" else default
+            if key in _SENSITIVE_FIELD_KEYS:
+                field["value"] = ""
+            else:
+                field["value"] = raw_value if raw_value != "" else default
             field["runtime_required"] = key in runtime_required_keys
         fields.append(field)
     return {
@@ -465,7 +431,6 @@ def _reload_runtime_config_modules():
         "autoteam.cloudflare_temp_email",
         "autoteam.mail_provider",
         "autoteam.cpa_sync",
-        "autoteam.sub2api_sync",
     ):
         try:
             module = importlib.import_module(module_name)
@@ -500,44 +465,6 @@ def _read_runtime_env_file_text():
     if not ENV_FILE.exists():
         return ""
     return read_text(ENV_FILE)
-
-
-def _read_runtime_source_text():
-    from autoteam.setup_wizard import ENV_EXAMPLE, ENV_FILE
-
-    if ENV_FILE.exists():
-        return read_text(ENV_FILE), str(ENV_FILE)
-    if ENV_EXAMPLE.exists():
-        return read_text(ENV_EXAMPLE), str(ENV_FILE)
-    return "", str(ENV_FILE)
-
-
-def _write_runtime_source_text(content: str):
-    from autoteam.setup_wizard import ENV_FILE
-
-    write_text(ENV_FILE, content)
-
-
-def _restore_runtime_source_text(previous_exists: bool, previous_content: str):
-    from autoteam.setup_wizard import ENV_FILE
-
-    if previous_exists:
-        write_text(ENV_FILE, previous_content)
-        return
-    if ENV_FILE.exists():
-        ENV_FILE.unlink()
-
-
-def _load_env_values_from_source(content: str, env_keys: list[str]):
-    values = {key: "" for key in env_keys}
-    for line in content.splitlines():
-        parsed = parse_env_line(line)
-        if not parsed:
-            continue
-        key, value = parsed
-        if key in values:
-            values[key] = value
-    return values
 
 
 def _load_present_env_values_from_source(content: str, env_keys: list[str]):
@@ -622,42 +549,6 @@ def _validate_runtime_optional_values(values: dict[str, str]):
         if value is None:
             return
         normalized[key] = "true" if value else "false"
-
-    def _normalize_sub2api_proxy(key: str):
-        raw = str(normalized.get(key, "") or "").strip()
-        if not raw:
-            normalized[key] = ""
-            return
-        if raw.lstrip("+-").isdigit():
-            try:
-                value = int(raw)
-            except ValueError as exc:
-                raise ValueError(f"{key} 必须是 Sub2API 代理 ID（正整数）或代理名称") from exc
-            if value <= 0:
-                raise ValueError(f"{key} 必须是 Sub2API 代理 ID（正整数）或代理名称")
-            normalized[key] = str(value)
-            return
-        normalized[key] = raw
-
-    _normalize_sub2api_proxy("SUB2API_PROXY")
-    _normalize_positive_int("SUB2API_CONCURRENCY")
-    _normalize_int("SUB2API_PRIORITY")
-    _normalize_positive_float("SUB2API_RATE_MULTIPLIER")
-    _normalize_bool("SUB2API_AUTO_PAUSE_ON_EXPIRED")
-    _normalize_bool("SUB2API_OPENAI_PASSTHROUGH")
-    _normalize_bool("SUB2API_OVERWRITE_ACCOUNT_SETTINGS")
-
-    ws_mode = str(normalized.get("SUB2API_OPENAI_WS_MODE", "") or "").strip().lower()
-    if ws_mode:
-        if ws_mode not in {"off", "ctx_pool", "passthrough"}:
-            raise ValueError("SUB2API_OPENAI_WS_MODE 必须是 off、ctx_pool 或 passthrough")
-        normalized["SUB2API_OPENAI_WS_MODE"] = ws_mode
-
-    whitelist = str(normalized.get("SUB2API_MODEL_WHITELIST", "") or "").strip()
-    if whitelist:
-        normalized["SUB2API_MODEL_WHITELIST"] = ",".join(part.strip() for part in whitelist.split(",") if part.strip())
-    else:
-        normalized["SUB2API_MODEL_WHITELIST"] = ""
 
     return normalized
 
@@ -751,7 +642,7 @@ def _verify_runtime_integrations(
         get_mail_services,
         normalize_mail_services,
     )
-    from autoteam.setup_wizard import _verify_cpa, _verify_mail_provider, _verify_mail_service, _verify_sub2api
+    from autoteam.setup_wizard import _verify_cpa, _verify_mail_provider, _verify_mail_service
 
     errors = []
     runtime_env = dict(env or os.environ)
@@ -769,7 +660,6 @@ def _verify_runtime_integrations(
         "CF_TEMP_EMAIL_DOMAIN",
     )
     cpa_keys = ("SYNC_TARGET_CPA", "CPA_URL", "CPA_KEY")
-    sub2api_keys = ("SYNC_TARGET_SUB2API", "SUB2API_URL", "SUB2API_EMAIL", "SUB2API_PASSWORD")
 
     def _changed(keys: tuple[str, ...]) -> bool:
         if previous_env is None:
@@ -782,7 +672,6 @@ def _verify_runtime_integrations(
         return False
 
     cpa_values = [runtime_env.get(key, "") for key in cpa_keys[1:]]
-    sub2api_values = [runtime_env.get(key, "") for key in sub2api_keys[1:]]
     sync_states = _effective_sync_target_states(runtime_env)
 
     if _changed(mail_keys):
@@ -808,8 +697,6 @@ def _verify_runtime_integrations(
 
     if _changed(cpa_keys) and sync_states.get("cpa") and all(cpa_values) and not _verify_cpa():
         errors.append("CPA 连接失败")
-    if _changed(sub2api_keys) and sync_states.get("sub2api") and all(sub2api_values) and not _verify_sub2api():
-        errors.append("Sub2API 连接失败")
     if errors:
         api_key = ""
         if previous_env:
@@ -834,6 +721,10 @@ def _save_runtime_config(data: dict[str, str]):
     env_keys = [key for key, _prompt, _default, _optional in REQUIRED_CONFIGS]
     existing = {key: os.environ.get(key, "") for key in env_keys}
     merged = {key: data.get(key, existing.get(key, "")) for key in env_keys}
+    # 敏感字段留空时保持原值不变（API_KEY 由后续逻辑自动生成）
+    for key in _SENSITIVE_FIELD_KEYS:
+        if key in merged and not merged[key]:
+            merged[key] = existing.get(key, "")
     use_structured_mail_services = "mail_services" in data or "mail_service_default" in data
     normalized_services = normalize_mail_services(
         data.get("mail_services") if use_structured_mail_services else merged.get("MAIL_SERVICES_JSON")
@@ -938,80 +829,10 @@ def get_runtime_config():
     return _collect_config_fields(include_values=True)
 
 
-@app.get("/api/config/source")
-def get_runtime_config_source():
-    """获取 .env 源文件内容。"""
-    content, path = _read_runtime_source_text()
-    return {"path": path, "content": content}
-
-
 @app.put("/api/config/runtime")
 def put_runtime_config(config: SetupConfig):
-    """登录后修改 CloudMail / CPA / Sub2API / 代理等运行时配置。"""
+    """登录后修改 CloudMail / CPA / 代理等运行时配置。"""
     return _save_runtime_config(config.model_dump(exclude_unset=True))
-
-
-@app.put("/api/config/source")
-def put_runtime_config_source(config: SourceConfig):
-    """保存 .env 源文件内容，并立即应用到运行时。"""
-    env_keys = list(_ALL_RUNTIME_ENV_KEYS)
-    previous_env = {key: os.environ.get(key) for key in env_keys}
-    source_path = None
-    previous_exists = False
-    previous_content = ""
-
-    try:
-        current_content, source_path = _read_runtime_source_text()
-        previous_content = current_content
-        from autoteam.setup_wizard import ENV_FILE
-
-        previous_exists = ENV_FILE.exists()
-
-        _write_runtime_source_text(config.content)
-
-        loaded_values = _load_env_values_from_source(config.content, env_keys)
-        missing = _validate_runtime_required_values(loaded_values)
-        if missing:
-            _restore_runtime_source_text(previous_exists, previous_content)
-            _restore_runtime_env(previous_env)
-            _reload_runtime_config_modules()
-            return JSONResponse(status_code=400, content={"message": "缺少必填项: " + "、".join(missing)})
-
-        try:
-            loaded_values = _validate_runtime_optional_values(loaded_values)
-        except ValueError as exc:
-            _restore_runtime_source_text(previous_exists, previous_content)
-            _restore_runtime_env(previous_env)
-            _reload_runtime_config_modules()
-            return JSONResponse(status_code=400, content={"message": str(exc)})
-
-        for key in env_keys:
-            if loaded_values.get(key):
-                os.environ[key] = loaded_values[key]
-            else:
-                os.environ.pop(key, None)
-
-        _reload_runtime_config_modules()
-        verify_result = _verify_runtime_integrations(previous_env, env=loaded_values)
-        if verify_result:
-            _restore_runtime_source_text(previous_exists, previous_content)
-            _restore_runtime_env(previous_env)
-            _reload_runtime_config_modules()
-            return verify_result
-
-        _sync_runtime_env_reload_state()
-        _sync_runtime_globals()
-        return {
-            "message": "源文件保存成功",
-            "api_key": API_KEY,
-            "configured": True,
-            "path": source_path,
-        }
-    except Exception:
-        _restore_runtime_source_text(previous_exists, previous_content)
-        _restore_runtime_env(previous_env)
-        _reload_runtime_config_modules()
-        raise
 
 
 # ---------------------------------------------------------------------------
@@ -3368,8 +3189,6 @@ def set_auto_check_config(cfg: AutoCheckConfig):
         "AUTO_CHECK_TARGET_SEATS": str(normalized["target_seats"]),
         "AUTO_CHECK_THRESHOLD": str(normalized["threshold"]),
         "AUTO_CHECK_MIN_LOW": str(normalized["min_low"]),
-        "AUTO_CHECK_RETRY_ADD_PHONE": "true" if normalized["retry_add_phone"] else "false",
-        "AUTO_CHECK_ADD_PHONE_MAX_RETRIES": str(normalized["add_phone_max_retries"]),
     }
     for key, value in persisted.items():
         os.environ[key] = value
@@ -3378,13 +3197,11 @@ def set_auto_check_config(cfg: AutoCheckConfig):
     _sync_runtime_env_reload_state()
     _auto_check_restart.set()  # 唤醒巡检线程，立即应用新配置
     logger.info(
-        "[巡检] 配置已更新并持久化: 间隔=%ds 目标seat=%d 阈值=%d%% 触发=%d个 add_phone自动重试=%s 最大重试=%d",
+        "[巡检] 配置已更新并持久化: 间隔=%ds 目标seat=%d 阈值=%d%% 触发=%d个",
         _auto_check_config["interval"],
         _auto_check_config["target_seats"],
         _auto_check_config["threshold"],
         _auto_check_config["min_low"],
-        "开" if _auto_check_config["retry_add_phone"] else "关",
-        _auto_check_config["add_phone_max_retries"],
     )
     return _auto_check_config.copy()
 

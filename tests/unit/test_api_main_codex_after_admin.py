@@ -153,24 +153,22 @@ def test_post_main_codex_delete_cpa_returns_deleted_names(monkeypatch):
     )
     monkeypatch.setattr(
         "autoteam.sync_targets.get_enabled_sync_targets",
-        lambda env=None: ["cpa", "sub2api"],
+        lambda env=None: ["cpa"],
     )
     monkeypatch.setattr(
         "autoteam.sync_targets.delete_main_codex_from_configured_targets",
         lambda: {
             "cpa": {"deleted": ["codex-main-acc-1.json"], "count": 1},
-            "sub2api": {"deleted": ["sub2api-codex-main-acc-1.json"], "count": 1},
         },
     )
 
     result = api.post_main_codex_delete_cpa()
 
     assert result == {
-        "message": "已从 CPA + Sub2API 删除 2 个主号认证文件",
-        "deleted": ["codex-main-acc-1.json", "sub2api-codex-main-acc-1.json"],
+        "message": "已从 CPA 删除 1 个主号认证文件",
+        "deleted": ["codex-main-acc-1.json"],
         "results": {
             "cpa": {"deleted": ["codex-main-acc-1.json"], "count": 1},
-            "sub2api": {"deleted": ["sub2api-codex-main-acc-1.json"], "count": 1},
         },
     }
 
@@ -183,22 +181,22 @@ def test_post_main_codex_delete_remote_files_returns_deleted_names(monkeypatch):
     )
     monkeypatch.setattr(
         "autoteam.sync_targets.get_enabled_sync_targets",
-        lambda env=None: ["sub2api"],
+        lambda env=None: ["cpa"],
     )
     monkeypatch.setattr(
         "autoteam.sync_targets.delete_main_codex_from_configured_targets",
         lambda: {
-            "sub2api": {"deleted": ["sub2api-codex-main-acc-1.json"], "count": 1},
+            "cpa": {"deleted": ["codex-main-acc-1.json"], "count": 1},
         },
     )
 
     result = api.post_main_codex_delete_remote_files()
 
     assert result == {
-        "message": "已从 Sub2API 删除 1 个主号认证文件",
-        "deleted": ["sub2api-codex-main-acc-1.json"],
+        "message": "已从 CPA 删除 1 个主号认证文件",
+        "deleted": ["codex-main-acc-1.json"],
         "results": {
-            "sub2api": {"deleted": ["sub2api-codex-main-acc-1.json"], "count": 1},
+            "cpa": {"deleted": ["codex-main-acc-1.json"], "count": 1},
         },
     }
 
@@ -206,7 +204,7 @@ def test_post_main_codex_delete_remote_files_returns_deleted_names(monkeypatch):
 def test_post_main_codex_delete_remote_files_requires_enabled_target(monkeypatch):
     def fake_require(*_args, **_kwargs):
         raise HTTPException(
-            status_code=400, detail="删除主号 Codex 远端文件 前请先在配置面板启用至少一个远端同步目标（CPA 或 Sub2API）"
+            status_code=400, detail="删除主号 Codex 远端文件 前请先在配置面板启用至少一个远端同步目标（CPA）"
         )
 
     monkeypatch.setattr(api, "_require_sync_target_configs", fake_require)
@@ -226,23 +224,21 @@ def test_post_main_codex_delete_remote_files_reports_partial_remote_failures(mon
     )
     monkeypatch.setattr(
         "autoteam.sync_targets.get_enabled_sync_targets",
-        lambda env=None: ["cpa", "sub2api"],
+        lambda env=None: ["cpa"],
     )
     monkeypatch.setattr(
         "autoteam.sync_targets.delete_main_codex_from_configured_targets",
         lambda: {
-            "cpa": {"deleted": ["codex-main-acc-1.json"], "count": 1},
-            "sub2api": {"deleted": [], "count": 0, "error": "service offline"},
+            "cpa": {"deleted": [], "count": 0, "error": "service offline"},
         },
     )
 
     result = api.post_main_codex_delete_remote_files()
 
     assert result == {
-        "message": "已从 CPA + Sub2API 删除 1 个主号认证文件（Sub2API 清理失败，详情见 results）",
-        "deleted": ["codex-main-acc-1.json"],
+        "message": "已从 CPA 删除 0 个主号认证文件（CPA 清理失败，详情见 results）",
+        "deleted": [],
         "results": {
-            "cpa": {"deleted": ["codex-main-acc-1.json"], "count": 1},
-            "sub2api": {"deleted": [], "count": 0, "error": "service offline"},
+            "cpa": {"deleted": [], "count": 0, "error": "service offline"},
         },
     }
