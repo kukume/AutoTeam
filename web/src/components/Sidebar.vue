@@ -1,19 +1,17 @@
 <template>
   <!-- 桌面端侧边栏 -->
   <nav class="hidden h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-slate-950/65 p-5 md:flex">
-    <div class="mb-8">
-      <div class="mb-5 flex items-center gap-3">
-        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-          ⚡
-        </div>
-        <div>
-          <h1 class="text-lg font-semibold tracking-tight text-white">AutoTeam</h1>
-          <p class="mt-0.5 text-xs text-slate-400">账号轮转管理中心</p>
-        </div>
+    <div class="mb-2 flex items-center gap-3">
+      <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        ⚡
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold tracking-tight text-white">AutoTeam</h1>
+        <p class="mt-0.5 text-xs text-slate-400">账号轮转管理中心</p>
       </div>
     </div>
 
-    <div class="flex-1 space-y-2">
+    <div class="flex-1 space-y-2 overflow-y-auto">
       <button v-for="item in items" :key="item.key"
         @click="$emit('navigate', item.key)"
         class="group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition"
