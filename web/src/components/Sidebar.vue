@@ -1,8 +1,8 @@
 <template>
   <!-- 桌面端侧边栏 -->
   <nav class="hidden h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-slate-950/65 p-5 md:flex">
-    <div class="mb-2 flex items-center gap-3">
-      <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+    <div class="mb-4 flex items-center gap-3 pb-4 border-b border-white/5">
+      <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         ⚡
       </div>
       <div>
@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <div class="flex-1 space-y-2 overflow-y-auto">
+    <div class="flex-1 space-y-2 overflow-y-auto sidebar-scroll">
       <button v-for="item in items" :key="item.key"
         @click="$emit('navigate', item.key)"
         class="group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition"
@@ -87,3 +87,13 @@ const items = [
   { key: 'logs', icon: '📋', label: '日志', mobileLabel: '日志', hint: '查看实时运行日志' },
 ]
 </script>
+
+<style scoped>
+.sidebar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+</style>
