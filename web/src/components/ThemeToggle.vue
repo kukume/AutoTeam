@@ -8,7 +8,6 @@
     @click="toggleTheme"
   >
     <span class="text-base">{{ isDark ? '🌙' : '☀️' }}</span>
-    <span class="hidden sm:inline">{{ isDark ? '夜间' : '白天' }}</span>
   </button>
 </template>
 

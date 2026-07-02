@@ -19,39 +19,14 @@
 
     <div
       v-if="selectedRuntimeCategory"
-      class="glass-card p-6"
+      class="glass-card p-5"
     >
-      <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div class="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-            <span>{{ currentRuntimeCategoryMeta?.icon }}</span>
-            {{ currentRuntimeCategoryMeta?.badge }}
-          </div>
-          <h3 class="section-heading">{{ currentRuntimeCategoryMeta?.title }}</h3>
-          <p class="section-subtitle max-w-3xl">
-            {{ currentRuntimeCategoryMeta?.description }}
-          </p>
-          <p
-            v-if="currentRuntimeCategoryMeta?.note"
-            class="mt-2 text-xs text-slate-500"
-          >
-            {{ currentRuntimeCategoryMeta.note }}
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <span
-            v-if="runtimeSaved"
-            class="status-badge border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
-          >
-            已保存
-          </span>
-          <span
-            class="status-badge min-w-[84px] justify-center"
-            :class="currentRuntimeStatus.class"
-          >
-            {{ currentRuntimeStatus.label }}
-          </span>
-        </div>
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-white">{{ currentRuntimeCategoryMeta?.title }}</h2>
+        <span
+          v-if="runtimeSaved"
+          class="text-xs text-green-400"
+        >已保存</span>
       </div>
 
       <div
@@ -66,26 +41,19 @@
         正在加载当前配置...
       </div>
 
-      <div v-else-if="selectedRuntimeCategory === 'cloudmail'" class="space-y-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div class="text-sm font-medium text-white">邮箱服务列表</div>
-            <div class="mt-1 text-xs leading-5 text-slate-400">
-              可以同时添加多个 CloudMail / Cloudflare Temp Email 实例；默认服务用于新建账号，已有账号会优先复用自身绑定或唯一域名匹配到的服务。
-            </div>
+      <div v-else-if="selectedRuntimeCategory === 'cloudmail'" class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs text-slate-500">
+            可同时添加多个 CloudMail / Cloudflare Temp Email 实例；默认服务用于新建账号。
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn-secondary" @click="addMailService('cloudmail')">
+              + 添加 CloudMail
+            </button>
+            <button class="btn-secondary" @click="addMailService('cloudflare_temp_email')">
+              + 添加 Cloudflare Temp Email
+            </button>
           </div>
-          <div class="status-badge text-xs text-slate-400">
-            {{ defaultMailService ? `默认：${mailServiceCardTitle(defaultMailService)}` : '未设置默认服务' }}
-          </div>
-        </div>
-
-        <div class="flex flex-wrap gap-3">
-          <button class="btn-secondary" @click="addMailService('cloudmail')">
-            + 添加 CloudMail
-          </button>
-          <button class="btn-secondary" @click="addMailService('cloudflare_temp_email')">
-            + 添加 Cloudflare Temp Email
-          </button>
         </div>
 
         <div
@@ -98,34 +66,26 @@
         <div
           v-for="service in mailServices"
           :key="service.id"
-          class="rounded-2xl border border-white/10 bg-white/5 p-5"
+          class="rounded-lg border border-gray-800 bg-gray-800/60 p-3"
         >
-          <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <div class="text-sm font-medium text-white">{{ mailServiceCardTitle(service) }}</div>
-                <span class="status-badge text-[11px] text-slate-300">
-                  {{ mailServiceTypeLabel(service.type) }}
-                </span>
-                <span
-                  v-if="mailServiceDefault === service.id"
-                  class="status-badge border-emerald-400/20 bg-emerald-500/10 text-[11px] text-emerald-200"
-                >
-                  默认新建服务
-                </span>
-                <span
-                  v-if="!isMailServiceComplete(service)"
-                  class="status-badge border-amber-400/20 bg-amber-500/10 text-[11px] text-amber-200"
-                >
-                  待补全
-                </span>
-              </div>
-              <div class="mt-1 text-xs leading-5 text-slate-400">
-                {{ mailServiceDescription(service.type) }}
-              </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <div class="text-sm font-medium text-white">{{ mailServiceCardTitle(service) }}</div>
+            <span class="status-badge text-[11px] text-slate-300">
+              {{ mailServiceTypeLabel(service.type) }}
+            </span>
+            <span
+              v-if="mailServiceDefault === service.id"
+              class="status-badge border-emerald-400/20 bg-emerald-500/10 text-[11px] text-emerald-200"
+            >
+              默认新建服务
+            </span>
+            <span
+              v-if="!isMailServiceComplete(service)"
+              class="status-badge border-amber-400/20 bg-amber-500/10 text-[11px] text-amber-200"
+            >
+              待补全
+            </span>
+            <div class="ml-auto flex flex-wrap gap-2">
               <button
                 v-if="mailServiceDefault !== service.id"
                 class="btn-secondary"
@@ -142,11 +102,10 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                服务名称
-                <span class="ml-1 text-xs font-normal text-slate-500">（可选）</span>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div>
+              <label class="mb-1 block text-sm text-slate-400">
+                服务名称<span class="ml-1 text-xs text-slate-600">（可选）</span>
               </label>
               <input
                 v-model="service.name"
@@ -159,14 +118,9 @@
             <div
               v-for="field in mailServiceFields(service)"
               :key="`${service.id}-${field.key}`"
-              class="rounded-2xl border border-white/10 bg-slate-950/25 p-4"
             >
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                {{ field.label }}
-                <span v-if="field.required" class="text-red-400">*</span>
-                <div v-if="field.hint" class="mt-1 text-[11px] font-normal text-slate-500 break-all">
-                  {{ field.hint }}
-                </div>
+              <label class="mb-1 block text-sm text-slate-400">
+                {{ field.label }}<span v-if="field.required" class="text-red-400">*</span>
               </label>
               <input
                 v-model="service[field.key]"
@@ -174,13 +128,16 @@
                 :placeholder="field.inputType === 'password' ? '留空则不修改' : (field.placeholder || '')"
                 class="input-dark"
               />
+              <div v-if="field.hint" class="mt-1 text-[11px] text-slate-500 break-all">
+                {{ field.hint }}
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <p class="text-xs leading-6 text-slate-400">
-            保存后会立即热加载。新建账号会使用默认服务；已有账号会优先按 `mail_service_id` 或唯一邮箱域名匹配对应服务。
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs text-slate-500">
+            保存后立即热加载；已有账号按 `mail_service_id` 或唯一邮箱域名匹配服务。
           </p>
           <button
             @click="saveRuntimeConfig"
@@ -192,25 +149,24 @@
         </div>
       </div>
 
-      <div v-else-if="selectedRuntimeCategory === 'sync'" class="space-y-5">
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div v-for="field in syncCpaFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                {{ field.prompt }}
-                <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
-              </label>
-              <input
-                v-model="runtimeForm[field.key]"
-                :type="fieldInputType(field.key)"
-                :placeholder="fieldPlaceholder(field.key, field.default)"
-                class="input-dark"
-              />
-            </div>
+      <div v-else-if="selectedRuntimeCategory === 'sync'" class="space-y-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div v-for="field in syncCpaFields" :key="field.key">
+            <label class="mb-1 block text-sm text-slate-400">
+              {{ field.prompt }}<span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
+            </label>
+            <input
+              v-model="runtimeForm[field.key]"
+              :type="fieldInputType(field.key)"
+              :placeholder="fieldPlaceholder(field.key, field.default)"
+              class="input-dark"
+            />
           </div>
+        </div>
 
-        <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <p class="text-xs leading-6 text-slate-400">
-            保存后会立即热加载；账号池操作会根据当前已启用远端决定后续同步行为。
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs text-slate-500">
+            保存后立即热加载；账号池操作按当前已启用远端决定后续同步行为。
           </p>
           <button
             @click="saveRuntimeConfig"
@@ -223,24 +179,23 @@
       </div>
 
       <div v-else-if="selectedRuntimeCategory === 'proxy'" class="space-y-4">
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div v-for="field in proxyFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
-              <label class="mb-2 block text-sm font-medium text-slate-300">
-                {{ field.prompt }}
-                <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
-              </label>
-              <input
-                v-model="runtimeForm[field.key]"
-                :type="fieldInputType(field.key)"
-                :placeholder="fieldPlaceholder(field.key, field.default)"
-                class="input-dark"
-              />
-            </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div v-for="field in proxyFields" :key="field.key">
+            <label class="mb-1 block text-sm text-slate-400">
+              {{ field.prompt }}<span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
+            </label>
+            <input
+              v-model="runtimeForm[field.key]"
+              :type="fieldInputType(field.key)"
+              :placeholder="fieldPlaceholder(field.key, field.default)"
+              class="input-dark"
+            />
           </div>
+        </div>
 
-        <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <p class="text-xs leading-6 text-slate-400">
-            推荐只在确实需要代理 Playwright 浏览器流量时启用，并配合绕过列表避免本地回调误走代理。
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs text-slate-500">
+            仅在需要代理 Playwright 浏览器流量时启用，并配合绕过列表避免本地回调误走代理。
           </p>
           <button
             @click="saveRuntimeConfig"
@@ -253,23 +208,22 @@
       </div>
 
       <div v-else class="space-y-4">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div v-for="field in currentRuntimeFields" :key="field.key" class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <label class="mb-2 block text-sm font-medium text-slate-300">
-            {{ field.prompt }}
-            <span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
-          </label>
-          <input
-            v-model="runtimeForm[field.key]"
-            :type="fieldInputType(field.key)"
-            :placeholder="fieldPlaceholder(field.key, field.default)"
-            class="input-dark"
-          />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div v-for="field in currentRuntimeFields" :key="field.key">
+            <label class="mb-1 block text-sm text-slate-400">
+              {{ field.prompt }}<span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
+            </label>
+            <input
+              v-model="runtimeForm[field.key]"
+              :type="fieldInputType(field.key)"
+              :placeholder="fieldPlaceholder(field.key, field.default)"
+              class="input-dark"
+            />
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <p class="text-xs leading-6 text-slate-400">
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs text-slate-500">
             {{ currentRuntimeCategoryMeta?.footer }}
           </p>
           <button
@@ -304,7 +258,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api.js'
 import Settings from './Settings.vue'
 
@@ -374,6 +328,12 @@ const runtimeSaving = ref(false)
 const runtimeSaved = ref(false)
 const runtimeMessage = ref('')
 const runtimeMessageClass = ref('')
+
+// 切换分类时清掉“已保存”/消息提示，避免上个分类的提示串到新分类
+watch(visualCategory, () => {
+  runtimeSaved.value = false
+  runtimeMessage.value = ''
+})
 
 const runtimeRequiredKeys = new Set(['API_KEY'])
 
@@ -447,79 +407,6 @@ const defaultMailService = computed(() => mailServices.value.find(service => ser
 
 const currentRuntimeFields = computed(() => {
   return []
-})
-
-const currentRuntimeStatus = computed(() => {
-  if (!selectedRuntimeCategory.value) {
-    return {
-      label: '',
-      class: 'border-white/10 bg-white/5 text-slate-400',
-    }
-  }
-
-  if (selectedRuntimeCategory.value === 'sync') {
-    const cpaReady = syncCpaFields.value.every(field => !isRuntimeRequired(field) || field.configured)
-
-    return cpaReady
-      ? {
-          label: '已配置',
-          class: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
-        }
-      : {
-          label: '未配置',
-          class: 'border-red-400/20 bg-red-500/10 text-red-200',
-        }
-  }
-
-  if (selectedRuntimeCategory.value === 'proxy') {
-    return proxyFields.value.some(field => field.configured)
-      ? {
-          label: '已设置',
-          class: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
-        }
-      : {
-          label: '未设置',
-          class: 'border-white/10 bg-white/5 text-slate-400',
-        }
-  }
-
-  if (selectedRuntimeCategory.value === 'cloudmail') {
-    if (!mailServices.value.length) {
-      return {
-        label: '未配置',
-        class: 'border-red-400/20 bg-red-500/10 text-red-200',
-      }
-    }
-    if (!defaultMailService.value) {
-      return {
-        label: '未设默认',
-        class: 'border-amber-400/20 bg-amber-500/10 text-amber-200',
-      }
-    }
-    if (mailServices.value.some(service => !isMailServiceComplete(service))) {
-      return {
-        label: '待补全',
-        class: 'border-amber-400/20 bg-amber-500/10 text-amber-200',
-      }
-    }
-    return {
-      label: '已配置',
-      class: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
-    }
-  }
-
-  const fields = currentRuntimeFields.value
-  const configured = fields.length > 0 && fields.every(field => !isRuntimeRequired(field) || field.configured)
-
-  return configured
-    ? {
-        label: '已配置',
-        class: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
-      }
-    : {
-        label: '未配置',
-        class: 'border-red-400/20 bg-red-500/10 text-red-200',
-      }
 })
 
 function setRuntimeMessage(text, type = 'success') {
@@ -651,8 +538,10 @@ function normalizeRuntimeFieldValue(field) {
   return field?.value ?? field?.default ?? ''
 }
 
-async function loadRuntimeConfig() {
-  runtimeLoading.value = true
+async function loadRuntimeConfig({ silent = false } = {}) {
+  if (!silent) {
+    runtimeLoading.value = true
+  }
   try {
     const result = await api.getRuntimeConfig()
     runtimeFields.value = result.fields || []
@@ -674,7 +563,9 @@ async function loadRuntimeConfig() {
     console.error('加载运行时配置失败:', e)
     setRuntimeMessage('加载运行时配置失败: ' + e.message, 'error')
   } finally {
-    runtimeLoading.value = false
+    if (!silent) {
+      runtimeLoading.value = false
+    }
   }
 }
 
@@ -694,12 +585,11 @@ async function saveRuntimeConfig() {
     payload.mail_services = sanitizedServices
     payload.mail_service_default = sanitizedDefault
     const result = await api.saveRuntimeConfig(payload)
-    setRuntimeMessage(result.message || '配置保存成功')
     runtimeSaved.value = true
     window.setTimeout(() => {
       runtimeSaved.value = false
     }, 3000)
-    await loadRuntimeConfig()
+    await loadRuntimeConfig({ silent: true })
     emit('refresh')
   } catch (e) {
     setRuntimeMessage(e.message, 'error')

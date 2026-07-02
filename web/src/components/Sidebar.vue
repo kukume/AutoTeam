@@ -5,15 +5,17 @@
       <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         ⚡
       </div>
-      <div>
+      <div class="min-w-0 flex-1">
         <h1 class="text-lg font-semibold tracking-tight text-white">AutoTeam</h1>
         <p class="mt-0.5 text-xs text-slate-400">账号轮转管理中心</p>
       </div>
+      <ThemeToggle />
     </div>
 
     <div class="flex-1 space-y-2 overflow-y-auto sidebar-scroll">
-      <button v-for="item in items" :key="item.key"
-        @click="$emit('navigate', item.key)"
+      <a v-for="item in items" :key="item.key"
+        :href="item.path"
+        @click.prevent="$emit('navigate', item.key)"
         class="group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition"
         :class="active === item.key
           ? 'bg-blue-500/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-blue-400/20'
@@ -31,7 +33,7 @@
           <span class="block text-sm font-medium">{{ item.label }}</span>
           <span class="mt-0.5 block text-xs text-slate-500 group-hover:text-slate-400">{{ item.hint }}</span>
         </span>
-      </button>
+      </a>
     </div>
 
     <div class="mt-2 space-y-2 border-t border-white/10 pt-5">
@@ -50,8 +52,9 @@
 
   <!-- 移动端底部 tab 栏 -->
   <nav class="fixed bottom-3 left-3 right-3 z-50 flex rounded-3xl border border-white/10 bg-slate-950/80 p-1.5 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.9)] backdrop-blur-2xl md:hidden">
-    <button v-for="item in items" :key="item.key"
-      @click="$emit('navigate', item.key)"
+    <a v-for="item in items" :key="item.key"
+      :href="item.path"
+      @click.prevent="$emit('navigate', item.key)"
       class="flex-1 rounded-2xl px-1 py-2 text-xs transition"
       :class="active === item.key
         ? 'bg-blue-500/15 text-blue-300'
@@ -60,28 +63,19 @@
         <span class="text-lg">{{ item.icon }}</span>
         <span class="mt-0.5">{{ item.mobileLabel || item.label }}</span>
       </div>
-    </button>
+    </a>
   </nav>
 </template>
 
 <script setup>
+import { ROUTES as items } from '../routes.js'
+import ThemeToggle from './ThemeToggle.vue'
 defineProps({
   active: String,
   loading: Boolean,
   authRequired: Boolean,
 })
 defineEmits(['navigate', 'refresh', 'logout'])
-
-const items = [
-  { key: 'dashboard', icon: '📊', label: '仪表盘', mobileLabel: '仪表盘', hint: '概览账号池与状态' },
-  { key: 'config', icon: '🧩', label: '配置面板', mobileLabel: '配置', hint: '统一编辑系统配置' },
-  { key: 'team', icon: '👥', label: 'Team 成员', mobileLabel: '成员', hint: '查看与管理成员' },
-  { key: 'pool', icon: '🔁', label: '账号池操作', mobileLabel: '账号池', hint: '轮转、补位与清理' },
-  { key: 'sync', icon: '🔄', label: '同步中心', mobileLabel: '同步', hint: '同步本地、远端与状态' },
-  { key: 'oauth', icon: '🔐', label: 'OAuth 登录', mobileLabel: 'OAuth', hint: '手动接管 OAuth 流程' },
-  { key: 'tasks', icon: '📜', label: '任务历史', mobileLabel: '任务', hint: '追踪任务执行结果' },
-  { key: 'logs', icon: '📋', label: '日志', mobileLabel: '日志', hint: '查看实时运行日志' },
-]
 </script>
 
 <style scoped>

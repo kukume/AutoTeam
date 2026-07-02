@@ -1,4 +1,10 @@
 <template>
+  <!-- 初始鉴权检查中：用一个最小占位，避免先闪出登录页 -->
+  <div v-if="authChecking" class="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+    <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-600 border-t-transparent"></div>
+  </div>
+
+  <template v-else>
   <ThemeToggle v-if="!authenticated" floating />
 
   <!-- 登录页 -->
@@ -98,10 +104,6 @@
     <!-- 主内容区 -->
     <div class="relative min-w-0 flex-1 overflow-y-auto pb-20 md:pb-8">
       <div class="mx-auto w-full max-w-[1500px] px-4 py-4 md:px-8 md:py-8">
-        <div class="mb-5 flex justify-end">
-          <ThemeToggle />
-        </div>
-
       <!-- 任务执行中提示 -->
         <div
           v-if="busyTask"
@@ -150,11 +152,13 @@
       </div>
     </div>
   </div>
+  </template>
 </template>
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { api, setApiKey, clearApiKey } from './api.js'
+import { pageFromPath, PATH_BY_PAGE } from './routes.js'
 import Sidebar from './components/Sidebar.vue'
 import Dashboard from './components/Dashboard.vue'
 import ConfigPage from './components/ConfigPage.vue'
@@ -168,11 +172,12 @@ import ThemeToggle from './components/ThemeToggle.vue'
 import { initTheme } from './theme.js'
 
 const authenticated = ref(false)
+const authChecking = ref(true)
 const authRequired = ref(false)
 const authLoading = ref(false)
 const authError = ref('')
 const inputKey = ref('')
-const currentPage = ref('dashboard')
+const currentPage = ref(pageFromPath())
 
 const status = ref(null)
 const adminStatus = ref(null)
@@ -211,6 +216,8 @@ async function checkAuth() {
     authenticated.value = true
     authRequired.value = false
     return true
+  } finally {
+    authChecking.value = false
   }
 }
 
@@ -240,6 +247,10 @@ function doLogout() {
   clearApiKey()
   authenticated.value = false
   stopPolling()
+  currentPage.value = 'dashboard'
+  if (window.location.pathname !== '/') {
+    window.history.replaceState({}, '', '/')
+  }
 }
 
 // --- Refresh functions ---
@@ -303,7 +314,17 @@ async function refreshAll() {
 
 // --- Event handlers ---
 function onNavigate(page) {
+  if (page === currentPage.value) return
   currentPage.value = page
+  const path = PATH_BY_PAGE[page] || '/'
+  if (window.location.pathname !== path) {
+    window.history.pushState({ page }, '', path)
+  }
+  refreshDynamic()
+}
+
+function onPopState() {
+  currentPage.value = pageFromPath()
   refreshDynamic()
 }
 
@@ -340,6 +361,7 @@ function stopPolling() {
 
 onMounted(async () => {
   initTheme()
+  window.addEventListener('popstate', onPopState)
   const ok = await checkAuth()
   if (ok) {
     refreshAll()
@@ -349,5 +371,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopPolling()
+  window.removeEventListener('popstate', onPopState)
 })
 </script>
