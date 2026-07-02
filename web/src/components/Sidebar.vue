@@ -1,6 +1,6 @@
 <template>
   <!-- 桌面端侧边栏 -->
-  <nav class="sticky top-0 hidden min-h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-slate-950/65 p-5 backdrop-blur-2xl md:flex">
+  <nav class="hidden h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-slate-950/65 p-5 md:flex">
     <div class="mb-8">
       <div class="mb-5 flex items-center gap-3">
         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -10,14 +10,6 @@
           <h1 class="text-lg font-semibold tracking-tight text-white">AutoTeam</h1>
           <p class="mt-0.5 text-xs text-slate-400">账号轮转管理中心</p>
         </div>
-      </div>
-
-      <div class="glass-card-soft px-4 py-3">
-        <div class="flex items-center gap-2 text-sm text-slate-200">
-          <span class="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.85)]"></span>
-          面板在线
-        </div>
-        <p class="mt-1 text-xs leading-5 text-slate-400">统一查看仪表盘、配置、同步、OAuth 和日志。</p>
       </div>
     </div>
 

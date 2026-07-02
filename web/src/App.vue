@@ -85,7 +85,7 @@
   </div>
 
   <!-- 主面板 -->
-  <div v-else class="relative md:flex">
+  <div v-else class="relative md:flex h-screen overflow-hidden">
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div class="absolute left-[10%] top-0 h-72 w-72 rounded-full bg-blue-500/8 blur-3xl"></div>
       <div class="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-cyan-500/8 blur-3xl"></div>

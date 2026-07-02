@@ -67,27 +67,25 @@
       </div>
 
       <div v-else-if="selectedRuntimeCategory === 'cloudmail'" class="space-y-5">
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div class="text-sm font-medium text-white">邮箱服务列表</div>
-              <div class="mt-1 text-xs leading-5 text-slate-400">
-                可以同时添加多个 CloudMail / Cloudflare Temp Email 实例；默认服务用于新建账号，已有账号会优先复用自身绑定或唯一域名匹配到的服务。
-              </div>
-            </div>
-            <div class="status-badge text-xs text-slate-400">
-              {{ defaultMailService ? `默认：${mailServiceCardTitle(defaultMailService)}` : '未设置默认服务' }}
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div class="text-sm font-medium text-white">邮箱服务列表</div>
+            <div class="mt-1 text-xs leading-5 text-slate-400">
+              可以同时添加多个 CloudMail / Cloudflare Temp Email 实例；默认服务用于新建账号，已有账号会优先复用自身绑定或唯一域名匹配到的服务。
             </div>
           </div>
+          <div class="status-badge text-xs text-slate-400">
+            {{ defaultMailService ? `默认：${mailServiceCardTitle(defaultMailService)}` : '未设置默认服务' }}
+          </div>
+        </div>
 
-          <div class="mt-4 flex flex-wrap gap-3">
-            <button class="btn-secondary" @click="addMailService('cloudmail')">
-              + 添加 CloudMail
-            </button>
-            <button class="btn-secondary" @click="addMailService('cloudflare_temp_email')">
-              + 添加 Cloudflare Temp Email
-            </button>
-          </div>
+        <div class="flex flex-wrap gap-3">
+          <button class="btn-secondary" @click="addMailService('cloudmail')">
+            + 添加 CloudMail
+          </button>
+          <button class="btn-secondary" @click="addMailService('cloudflare_temp_email')">
+            + 添加 Cloudflare Temp Email
+          </button>
         </div>
 
         <div
@@ -195,13 +193,6 @@
       </div>
 
       <div v-else-if="selectedRuntimeCategory === 'sync'" class="space-y-5">
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div class="mb-4">
-            <div class="text-sm font-medium text-white">CPA 同步配置</div>
-            <div class="mt-1 text-xs leading-5 text-slate-400">
-              填写 CPA 远端连接地址和管理密钥，保存后立即热加载。
-            </div>
-          </div>
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div v-for="field in syncCpaFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
               <label class="mb-2 block text-sm font-medium text-slate-300">
@@ -216,7 +207,6 @@
               />
             </div>
           </div>
-        </div>
 
         <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
           <p class="text-xs leading-6 text-slate-400">
@@ -233,21 +223,7 @@
       </div>
 
       <div v-else-if="selectedRuntimeCategory === 'proxy'" class="space-y-4">
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <button
-            @click="proxyExpanded = !proxyExpanded"
-            class="flex w-full items-center justify-between gap-4 text-left"
-          >
-            <div>
-              <div class="text-sm font-medium text-white">高级代理设置</div>
-              <div class="mt-1 text-xs leading-5 text-slate-400">
-                低频配置，默认折叠。只有浏览器流量需要单独代理时才建议填写。
-              </div>
-            </div>
-            <span class="text-xs text-slate-400">{{ proxyExpanded ? '收起' : '展开' }}</span>
-          </button>
-
-          <div v-if="proxyExpanded" class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div v-for="field in proxyFields" :key="field.key" class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
               <label class="mb-2 block text-sm font-medium text-slate-300">
                 {{ field.prompt }}
@@ -261,7 +237,6 @@
               />
             </div>
           </div>
-        </div>
 
         <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
           <p class="text-xs leading-6 text-slate-400">
@@ -389,7 +364,6 @@ const visualCategories = [
 ]
 
 const visualCategory = ref('cloudmail')
-const proxyExpanded = ref(false)
 
 const runtimeFields = ref([])
 const runtimeForm = reactive({})
