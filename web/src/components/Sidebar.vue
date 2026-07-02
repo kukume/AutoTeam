@@ -31,14 +31,10 @@
           <span class="block text-sm font-medium">{{ item.label }}</span>
           <span class="mt-0.5 block text-xs text-slate-500 group-hover:text-slate-400">{{ item.hint }}</span>
         </span>
-        <span
-          class="h-2.5 w-2.5 rounded-full transition"
-          :class="active === item.key ? 'bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.9)]' : 'bg-slate-700 group-hover:bg-slate-500'"
-        ></span>
       </button>
     </div>
 
-    <div class="space-y-2 border-t border-white/10 pt-5">
+    <div class="mt-2 space-y-2 border-t border-white/10 pt-5">
       <button @click="$emit('refresh')" :disabled="loading"
         class="btn-secondary w-full justify-start gap-3 rounded-2xl px-3 py-3 text-left disabled:opacity-50">
         <span class="text-base">🔄</span>
