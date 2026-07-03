@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -104,6 +105,7 @@ class RuntimeConfigItem(BaseModel):
     CPA_KEY: str = ""
     PLAYWRIGHT_PROXY_URL: str = ""
     PLAYWRIGHT_PROXY_BYPASS: str = ""
+    PHONE_OTP_AUTO_SEND: str = "off"
 
 
 _RUNTIME_CONFIG_CLEARABLE_FIELDS = {
@@ -119,6 +121,7 @@ _RUNTIME_CONFIG_CLEARABLE_FIELDS = {
     "CF_TEMP_EMAIL_DOMAIN",
     "PLAYWRIGHT_PROXY_URL",
     "PLAYWRIGHT_PROXY_BYPASS",
+    "PHONE_OTP_AUTO_SEND",
 }
 
 _CLOUDMAIL_REQUIRED_KEYS = ("CLOUDMAIL_BASE_URL", "CLOUDMAIL_EMAIL", "CLOUDMAIL_PASSWORD", "CLOUDMAIL_DOMAIN")
@@ -160,6 +163,7 @@ _ALL_RUNTIME_ENV_KEYS = [
     "AUTO_CHECK_MIN_LOW",
     "PLAYWRIGHT_PROXY_URL",
     "PLAYWRIGHT_PROXY_BYPASS",
+    "PHONE_OTP_AUTO_SEND",
 ]
 _RUNTIME_ENV_BASE = {key: os.environ.get(key) for key in _ALL_RUNTIME_ENV_KEYS}
 _runtime_env_reload_lock = threading.Lock()
@@ -545,6 +549,12 @@ def _validate_runtime_optional_values(values: dict[str, str]):
         if value is None:
             return
         normalized[key] = "true" if value else "false"
+
+    def _normalize_phone_otp_auto_send():
+        raw = str(normalized.get("PHONE_OTP_AUTO_SEND", "") or "").strip().lower()
+        normalized["PHONE_OTP_AUTO_SEND"] = raw if raw in {"off", "whatsapp", "sms"} else "off"
+
+    _normalize_phone_otp_auto_send()
 
     return normalized
 
@@ -2080,7 +2090,7 @@ def post_phone_otp_continue(email: str, params: PhoneOtpContinueParams):
 @app.post("/api/accounts/{email}/phone-otp/submit")
 def post_phone_otp_submit(email: str, params: PhoneOtpCodeParams):
     """提交手机验证码，浏览器会填入并点击提交。"""
-    from autoteam.accounts import find_account, load_accounts, update_account
+    from autoteam.accounts import find_account, load_accounts
 
     code = (params.code or "").strip()
     if not code:
@@ -2094,8 +2104,64 @@ def post_phone_otp_submit(email: str, params: PhoneOtpCodeParams):
     if acc.get("phone_otp_result") not in ("awaiting_code", "invalid"):
         raise HTTPException(status_code=400, detail=f"当前不支持 submit 操作（result={acc.get('phone_otp_result')}）")
 
-    update_account(email, phone_otp_action="submit", phone_otp_code=code)
+    _submit_phone_otp_code(email, code)
     return {"message": "已提交验证码", "email": email}
+
+
+class PhoneOtpRawCodeParams(BaseModel):
+    code: str = ""
+
+
+def _submit_phone_otp_code(email: str, code: str):
+    """将验证码写入账号的 phone_otp_action=submit，供浏览器循环消费。"""
+    from autoteam.accounts import update_account
+
+    update_account(email, phone_otp_action="submit", phone_otp_code=code)
+
+
+_PHONE_OTP_CODE_RE = re.compile(r"\d{6}")
+
+
+@app.post("/api/phone-otp/code")
+def post_phone_otp_code(params: PhoneOtpRawCodeParams):
+    """只接受验证码：从参数中正则提取 6 位数字验证码，提交给当前唯一的 phone_otp 账号。
+
+    受程序限制，phone_otp 状态的账号同时至多一个。未找到则返回 found:false。
+    """
+    from autoteam.accounts import STATUS_PHONE_OTP, load_accounts, update_account
+
+    raw = str(getattr(params, "code", "") or "")
+    match = _PHONE_OTP_CODE_RE.search(raw)
+    if not match:
+        raise HTTPException(status_code=400, detail="未从参数中提取到 6 位数字验证码")
+    code = match.group(0)
+
+    target = None
+    for acc in load_accounts():
+        if acc.get("status") == STATUS_PHONE_OTP:
+            target = acc
+            break
+
+    if not target:
+        return {"found": False, "message": "当前没有处于 phone_otp 的账号"}
+
+    result = target.get("phone_otp_result")
+    if result not in ("awaiting_code", "invalid"):
+        reason_map = {
+            "awaiting_continue": "当前尚未发送验证码（等待发送），请先发送验证码",
+            "passed": "验证码已通过，无需再次提交",
+            "max_attempts": "已超过最大重试次数",
+            "timeout": "phone-otp 已超时",
+        }
+        return {
+            "found": False,
+            "email": target.get("email"),
+            "reason": reason_map.get(result, f"当前不支持提交验证码（result={result}）"),
+        }
+
+    email = target.get("email")
+    _submit_phone_otp_code(email, code)
+    return {"found": True, "email": email, "code": code, "message": "已提交验证码"}
 
 
 @app.post("/api/accounts/{email}/kick")

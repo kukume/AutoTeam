@@ -43,6 +43,7 @@ REQUIRED_CONFIGS = [
     ("CPA_KEY", "CPA 管理密钥", "", True),
     ("PLAYWRIGHT_PROXY_URL", "Playwright 浏览器代理 URL（可选，如 socks5://host:port）", "", True),
     ("PLAYWRIGHT_PROXY_BYPASS", "Playwright 代理绕过列表（可选，如 localhost,127.0.0.1）", "", True),
+    ("PHONE_OTP_AUTO_SEND", "自动发送手机验证码（off/whatsapp/sms）", "off", True),
     ("API_KEY", "API 鉴权密钥（回车自动生成）", "", False),
 ]
 

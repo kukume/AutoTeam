@@ -484,6 +484,7 @@ def _handle_phone_otp(page, email, *, timeout=600):
       phone_otp_expires_at: 超时时间戳
     """
     from autoteam.accounts import load_accounts, find_account, update_account, STATUS_PHONE_OTP
+    from autoteam.accounts import get_phone_otp_auto_send
 
     now = time.time()
     expire_ts = now + timeout
@@ -516,6 +517,15 @@ def _handle_phone_otp(page, email, *, timeout=600):
         phone_otp_method=None,
     )
     logger.info("[Codex] 检测到 %s 页面，等待前端操作 | email=%s | 超时=%ds", _current_url.split("/")[-1] or "phone", email, timeout)
+
+    # 若配置了自动发送验证码且当前在初始页（待发送），自动触发一次 continue，
+    # 等价于前端点击「发送验证码」并选择 sms/whatsapp，复用循环中的 continue 分支。
+    auto_method = get_phone_otp_auto_send()
+    if initial_result == "awaiting_continue" and auto_method in ("sms", "whatsapp"):
+        logger.info("[Codex] phone-otp 自动发送验证码 | email=%s | method=%s", email, auto_method)
+        update_account(email, phone_otp_action="continue", phone_otp_method=auto_method)
+    else:
+        logger.info("[Codex] phone-otp 自动发送已关闭，等待手动发送 | email=%s | auto=%s", email, auto_method)
 
     deadline = now + timeout
     while time.time() < deadline:

@@ -1,6 +1,7 @@
 """账号池管理 - 持久化存储所有账号状态"""
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -19,6 +20,15 @@ STATUS_PENDING = "pending"  # 已邀请，等待注册完成
 STATUS_AUTH_PENDING = "auth_pending"  # 已在 team 中，但 Codex 认证未就绪
 STATUS_ADD_PHONE = "add_phone"  # 在 team 中，需要手机号验证，等待人工处理
 STATUS_PHONE_OTP = "phone_otp"  # 需要手机验证码，等待前端交互
+
+# 自动发送手机验证码的可选方式
+PHONE_OTP_AUTO_SEND_CHOICES = ("off", "whatsapp", "sms")
+
+
+def get_phone_otp_auto_send() -> str:
+    """读取并归一化 PHONE_OTP_AUTO_SEND 配置，返回 'off' / 'whatsapp' / 'sms'。"""
+    raw = str(os.environ.get("PHONE_OTP_AUTO_SEND", "") or "").strip().lower()
+    return raw if raw in PHONE_OTP_AUTO_SEND_CHOICES else "off"
 
 
 def _normalized_email(value):

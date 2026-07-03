@@ -61,6 +61,7 @@ export const api = {
   getPhoneOtpStatus: (email) => request('GET', `/accounts/${encodeURIComponent(email)}/phone-otp/status`),
   phoneOtpContinue: (email, method) => request('POST', `/accounts/${encodeURIComponent(email)}/phone-otp/continue`, { method }),
   phoneOtpSubmit: (email, code) => request('POST', `/accounts/${encodeURIComponent(email)}/phone-otp/submit`, { code }),
+  submitPhoneOtpCode: (code) => request('POST', '/phone-otp/code', { code }),
   getCpaFiles: () => request('GET', '/cpa/files'),
 
   startAdminLogin: (email) => request('POST', '/admin/login/start', { email }),

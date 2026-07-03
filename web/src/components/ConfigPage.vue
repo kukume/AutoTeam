@@ -180,8 +180,8 @@
 
       <div v-else-if="selectedRuntimeCategory === 'proxy'" class="space-y-4">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <div v-for="field in proxyFields" :key="field.key">
-            <label class="mb-1 block text-sm text-slate-400">
+          <div v-for="field in proxyProxyFields" :key="field.key">
+            <label class="mb-2 block text-sm text-slate-400">
               {{ field.prompt }}<span v-if="isRuntimeRequired(field)" class="text-red-400">*</span>
             </label>
             <input
@@ -190,6 +190,23 @@
               :placeholder="fieldPlaceholder(field.key, field.default)"
               class="input-dark"
             />
+          </div>
+        </div>
+
+        <div>
+          <label class="mb-2 block text-sm text-slate-400">
+            {{ fieldByKey('PHONE_OTP_AUTO_SEND')?.prompt || '自动发送手机验证码' }}
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="opt in phoneOtpAutoSendOptions"
+              :key="opt.value"
+              @click="runtimeForm['PHONE_OTP_AUTO_SEND'] = opt.value"
+              class="pill-tab"
+              :class="runtimeForm['PHONE_OTP_AUTO_SEND'] === opt.value ? 'pill-tab-active' : ''"
+            >
+              {{ opt.label }}
+            </button>
           </div>
         </div>
 
@@ -281,7 +298,7 @@ const runtimeCategoryKeys = {
     'CPA_URL',
     'CPA_KEY',
   ],
-  proxy: ['PLAYWRIGHT_PROXY_URL', 'PLAYWRIGHT_PROXY_BYPASS'],
+  proxy: ['PLAYWRIGHT_PROXY_URL', 'PLAYWRIGHT_PROXY_BYPASS', 'PHONE_OTP_AUTO_SEND'],
 }
 
 const runtimeCategoryMeta = {
@@ -402,6 +419,15 @@ function fieldsByKeys(keys) {
 }
 
 const proxyFields = computed(() => fieldsByKeys(runtimeCategoryKeys.proxy))
+const proxyProxyFields = computed(() =>
+  proxyFields.value.filter((field) => field.key !== 'PHONE_OTP_AUTO_SEND')
+)
+
+const phoneOtpAutoSendOptions = [
+  { value: 'off', label: '关闭' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'sms', label: '短信' },
+]
 const syncCpaFields = computed(() => fieldsByKeys(['CPA_URL', 'CPA_KEY']))
 const defaultMailService = computed(() => mailServices.value.find(service => service.id === mailServiceDefault.value) || null)
 
@@ -574,16 +600,25 @@ async function saveRuntimeConfig() {
   runtimeSaved.value = false
   try {
     const payload = {}
+    // 仅提交当前页面（分类）涉及的字段，其它分类保持不变
+    const category = selectedRuntimeCategory.value
+    const keysForCurrentPage = new Set(runtimeCategoryKeys[category] || [])
     for (const field of runtimeFields.value) {
+      if (!keysForCurrentPage.has(field.key)) continue
+      // 邮箱服务分类的凭证字段由下方结构化服务数据提交，这里不重复
+      if (category === 'cloudmail' && field.key.startsWith('CLOUDMAIL_')) continue
+      if (category === 'cloudmail' && field.key.startsWith('CF_TEMP_EMAIL_')) continue
       const value = runtimeForm[field.key]
       payload[field.key] = value == null ? '' : String(value)
     }
-    const sanitizedServices = mailServices.value.map(service => sanitizeMailService(service))
-    const sanitizedDefault = sanitizedServices.some(service => service.id === mailServiceDefault.value)
-      ? mailServiceDefault.value
-      : sanitizedServices[0]?.id || ''
-    payload.mail_services = sanitizedServices
-    payload.mail_service_default = sanitizedDefault
+    if (category === 'cloudmail') {
+      const sanitizedServices = mailServices.value.map(service => sanitizeMailService(service))
+      const sanitizedDefault = sanitizedServices.some(service => service.id === mailServiceDefault.value)
+        ? mailServiceDefault.value
+        : sanitizedServices[0]?.id || ''
+      payload.mail_services = sanitizedServices
+      payload.mail_service_default = sanitizedDefault
+    }
     const result = await api.saveRuntimeConfig(payload)
     runtimeSaved.value = true
     window.setTimeout(() => {
