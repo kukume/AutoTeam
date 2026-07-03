@@ -480,7 +480,7 @@ def _handle_phone_otp(page, email, *, timeout=600):
       phone_otp_action:    null | "continue" | "submit"
       phone_otp_code:       验证码字符串（submit 时带）
       phone_otp_attempts:   已提交次数
-      phone_otp_result:     "awaiting_continue" | "awaiting_code" | "invalid" | "passed" | "max_attempts" | "timeout"
+      phone_otp_result:     "awaiting_continue" | "awaiting_send" | "awaiting_code" | "invalid" | "passed" | "max_attempts" | "timeout"
       phone_otp_expires_at: 超时时间戳
     """
     from autoteam.accounts import load_accounts, find_account, update_account, STATUS_PHONE_OTP
@@ -535,6 +535,16 @@ def _handle_phone_otp(page, email, *, timeout=600):
             return "timeout"
 
         action = acc.get("phone_otp_action")
+        result = acc.get("phone_otp_result")
+
+        # 接口 /api/phone-otp/code 只写 phone_otp_code 不置 submit 动作；这里在
+        # 确认已发码（result==awaiting_code）且码非空、未在排队 submit 时自动推进，
+        # 由下方 submit 分支消费。awaiting_send 期间不推进，等 Continue 点完转
+        # awaiting_code 后再推进，保证 submit fill 时页面必已在输码页。
+        pending_code = str(acc.get("phone_otp_code") or "").strip()
+        if pending_code and result == "awaiting_code" and action != "submit":
+            update_account(email, phone_otp_action="submit")
+            action = "submit"
 
         if action == "continue":
             update_account(email, phone_otp_action=None)
@@ -576,6 +586,9 @@ def _handle_phone_otp(page, email, *, timeout=600):
                     'button:has-text("Send"), button:has-text("发送")'
                 ).first
                 if cont_btn.is_visible(timeout=3000):
+                    # 点击 Continue 前一行：标记「即将发码」，使 /api/phone-otp/code
+                    # 接口此时起即可接受验证码。点完 Continue 并跳转后转为 awaiting_code。
+                    update_account(email, phone_otp_result="awaiting_send")
                     cont_btn.click()
                     logger.info("[Codex] phone-otp 已点击 Continue 按钮")
                     time.sleep(5)

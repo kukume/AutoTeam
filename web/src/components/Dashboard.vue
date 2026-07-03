@@ -109,6 +109,10 @@
                   class="px-3 py-1.5 rounded-lg text-xs font-medium border transition bg-purple-600/10 text-purple-400 border-purple-500/30 hover:bg-purple-600/20 disabled:opacity-50">
                   {{ phoneOtpLoading === `${acc.email}:continue` ? '发送中...' : '发送验证码' }}
                 </button>
+                <span
+                  v-if="acc.raw_status === 'phone_otp' && acc.phone_otp_result === 'awaiting_send'"
+                  class="text-xs text-purple-400"
+                >发送中...</span>
                 <button
                   v-if="acc.raw_status === 'phone_otp' && ['awaiting_code', 'invalid'].includes(acc.phone_otp_result)"
                   @click="phoneOtpSubmit(acc.email, acc.phone_otp_phone_number, acc.phone_otp_attempts, acc.phone_otp_result === 'invalid')"

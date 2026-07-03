@@ -2127,8 +2127,22 @@ def post_phone_otp_code(params: PhoneOtpRawCodeParams):
     """只接受验证码：从参数中正则提取 6 位数字验证码，提交给当前唯一的 phone_otp 账号。
 
     受程序限制，phone_otp 状态的账号同时至多一个。未找到则返回 found:false。
+    仅在开启「自动发送验证码」(PHONE_OTP_AUTO_SEND 非 off)时可调用——这保证后端会自动
+    点 Continue 发码，因此本接口只写入验证码、不直接置 submit 动作，由后端循环在
+    Continue 完成后检测到验证码时自动推进为 submit，避免与正在进行的 continue 动作冲突。
     """
-    from autoteam.accounts import STATUS_PHONE_OTP, load_accounts, update_account
+    from autoteam.accounts import (
+        STATUS_PHONE_OTP,
+        get_phone_otp_auto_send,
+        load_accounts,
+        update_account,
+    )
+
+    if get_phone_otp_auto_send() == "off":
+        raise HTTPException(
+            status_code=403,
+            detail="未开启自动发送验证码（PHONE_OTP_AUTO_SEND=off），无法调用本接口",
+        )
 
     raw = str(getattr(params, "code", "") or "")
     match = _PHONE_OTP_CODE_RE.search(raw)
@@ -2145,23 +2159,25 @@ def post_phone_otp_code(params: PhoneOtpRawCodeParams):
     if not target:
         return {"found": False, "message": "当前没有处于 phone_otp 的账号"}
 
+    email = target.get("email")
     result = target.get("phone_otp_result")
-    if result not in ("awaiting_code", "invalid"):
+    if result not in ("awaiting_send", "awaiting_code", "invalid"):
         reason_map = {
-            "awaiting_continue": "当前尚未发送验证码（等待发送），请先发送验证码",
+            "awaiting_continue": "尚未发送验证码（等待自动发送），请稍后重试",
             "passed": "验证码已通过，无需再次提交",
             "max_attempts": "已超过最大重试次数",
             "timeout": "phone-otp 已超时",
         }
         return {
             "found": False,
-            "email": target.get("email"),
+            "email": email,
             "reason": reason_map.get(result, f"当前不支持提交验证码（result={result}）"),
         }
 
-    email = target.get("email")
-    _submit_phone_otp_code(email, code)
-    return {"found": True, "email": email, "code": code, "message": "已提交验证码"}
+    # 仅写入验证码，不触碰 phone_otp_action——由 _handle_phone_otp 循环在合适的
+    # 时机（Continue 完成后）检测到验证码时自动推进为 submit，避免抢走正在排队的 continue。
+    update_account(email, phone_otp_code=code)
+    return {"found": True, "email": email, "code": code, "message": "已接收验证码，等待后端自动提交"}
 
 
 @app.post("/api/accounts/{email}/kick")
