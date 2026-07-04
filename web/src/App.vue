@@ -91,7 +91,7 @@
   </div>
 
   <!-- 主面板 -->
-  <div v-else class="relative md:flex h-screen overflow-hidden">
+  <div v-else class="relative flex h-screen flex-col overflow-hidden md:flex-row">
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div class="absolute left-[10%] top-0 h-72 w-72 rounded-full bg-blue-500/8 blur-3xl"></div>
       <div class="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-cyan-500/8 blur-3xl"></div>
@@ -102,7 +102,7 @@
       @navigate="onNavigate" @refresh="refreshAll" @logout="doLogout" />
 
     <!-- 主内容区 -->
-    <div class="relative min-w-0 flex-1 overflow-y-auto pb-20 md:pb-8">
+    <div class="relative min-h-0 min-w-0 flex-1 overflow-y-auto pb-20 md:pb-8">
       <div class="mx-auto w-full max-w-[1500px] px-4 py-4 md:px-8 md:py-8">
       <!-- 任务执行中提示 -->
         <div
