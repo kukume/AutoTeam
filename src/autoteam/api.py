@@ -2083,6 +2083,7 @@ def post_phone_otp_continue(email: str, params: PhoneOtpContinueParams):
     if method not in ("sms", "whatsapp"):
         method = "sms"
 
+    logger.info("[phone-otp] %s: continue (method=%s)", email, method)
     update_account(email, phone_otp_action="continue", phone_otp_method=method)
     return {"message": f"已通知浏览器发送验证码 ({method})", "email": email}
 
@@ -2104,6 +2105,7 @@ def post_phone_otp_submit(email: str, params: PhoneOtpCodeParams):
     if acc.get("phone_otp_result") not in ("awaiting_code", "invalid"):
         raise HTTPException(status_code=400, detail=f"当前不支持 submit 操作（result={acc.get('phone_otp_result')}）")
 
+    logger.info("[phone-otp] %s: submit code=%s", email, code)
     _submit_phone_otp_code(email, code)
     return {"message": "已提交验证码", "email": email}
 
@@ -2174,6 +2176,7 @@ def post_phone_otp_code(params: PhoneOtpRawCodeParams):
             "reason": reason_map.get(result, f"当前不支持提交验证码（result={result}）"),
         }
 
+    logger.info("[phone-otp] %s: raw code received=%s", email, code)
     # 仅写入验证码，不触碰 phone_otp_action——由 _handle_phone_otp 循环在合适的
     # 时机（Continue 完成后）检测到验证码时自动推进为 submit，避免抢走正在排队的 continue。
     update_account(email, phone_otp_code=code)
