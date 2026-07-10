@@ -2111,14 +2111,7 @@ def post_phone_otp_submit(email: str, params: PhoneOtpCodeParams):
 
 
 class PhoneOtpRawCodeParams(BaseModel):
-    """兼容两种格式：旧的 {code: "..."} 和新的 WhatsApp webhook 格式。"""
     code: str = ""
-    event: str = ""
-    timestamp: str = ""
-    sessionId: str = ""
-    idempotencyKey: str = ""
-    deliveryId: str = ""
-    data: dict = {}
 
 
 def _submit_phone_otp_code(email: str, code: str):
@@ -2133,11 +2126,8 @@ _PHONE_OTP_CODE_RE = re.compile(r"\d{6}")
 
 @app.post("/api/phone-otp/code")
 def post_phone_otp_code(params: PhoneOtpRawCodeParams):
-    """接收验证码，兼容两种格式：
-    - 旧的 {code: "123456"} 或 {code: "Your code is 123456"}
-    - 新的 WhatsApp webhook {event: "message.received", data: {body: "..."}}
-
-    从 code 字段或 data.body 中正则提取 6 位数字验证码，提交给当前唯一的 phone_otp 账号。
+    """接收验证码：从 code 字段中正则提取 6 位数字验证码，
+    提交给当前唯一的 phone_otp 账号。
 
     受程序限制，phone_otp 状态的账号同时至多一个。未找到则返回 found:false。
     仅在开启「自动发送验证码」(PHONE_OTP_AUTO_SEND 非 off)时可调用——这保证后端会自动
@@ -2157,7 +2147,7 @@ def post_phone_otp_code(params: PhoneOtpRawCodeParams):
             detail="未开启自动发送验证码（PHONE_OTP_AUTO_SEND=off），无法调用本接口",
         )
 
-    raw = str(params.code or (params.data or {}).get("body", "") or "")
+    raw = str(params.code or "")
     match = _PHONE_OTP_CODE_RE.search(raw)
     if not match:
         raise HTTPException(status_code=400, detail="未从参数中提取到 6 位数字验证码")
