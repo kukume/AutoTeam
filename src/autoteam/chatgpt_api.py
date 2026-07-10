@@ -642,7 +642,11 @@ class ChatGPTTeamAPI:
                 lower_body = body_text.lower()
 
         if self._transport_response_requires_browser_fallback(response):
-            logger.warning("[ChatGPT] curl_cffi 返回异常响应，回退 Playwright transport")
+            logger.warning(
+                "[ChatGPT] curl_cffi 返回异常响应，回退 Playwright transport (status=%d, body=%s)",
+                status,
+                body_text[:300],
+            )
             self._ensure_browser_session()
             return self._browser_api_fetch(method, path, body)
 
