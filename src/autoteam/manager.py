@@ -2409,10 +2409,17 @@ def cmd_rotate(target_seats=5, force_auth_repair=False):
                         logger.info("%s 跳过 %s（额度未恢复）", stage_label, email)
                         return "quota_skip"
                     if status_str == "ok" and isinstance(info, dict):
-                        p_remain = 100 - info.get("primary_pct", 0)
-                        if p_remain < threshold:
-                            logger.info("%s 跳过 %s（剩余 %d%% < %d%%）", stage_label, email, p_remain, threshold)
-                            return "quota_skip"
+                        has_primary = info.get("has_primary", True)
+                        if has_primary:
+                            p_remain = 100 - info.get("primary_pct", 0)
+                            if p_remain < threshold:
+                                logger.info("%s 跳过 %s（5h剩余 %d%% < %d%%）", stage_label, email, p_remain, threshold)
+                                return "quota_skip"
+                        else:
+                            w_remain = 100 - info.get("weekly_pct", 0)
+                            if w_remain < threshold:
+                                logger.info("%s 跳过 %s（周剩余 %d%% < %d%%）", stage_label, email, w_remain, threshold)
+                                return "quota_skip"
                         quota_ok = True
                     if status_str == "auth_error":
                         logger.info("%s %s 的认证已失效，改用保存的额度信息判断是否可复用", stage_label, email)
@@ -2431,14 +2438,25 @@ def cmd_rotate(target_seats=5, force_auth_repair=False):
 
             lq = acc.get("last_quota")
             if lq:
-                p_resets = lq.get("primary_resets_at", 0)
-                if p_resets and time.time() >= p_resets:
-                    logger.info("%s %s 的 5h 重置时间已过，视为额度已恢复", stage_label, email)
+                has_primary = lq.get("has_primary", True)
+                if has_primary:
+                    p_resets = lq.get("primary_resets_at", 0)
+                    if p_resets and time.time() >= p_resets:
+                        logger.info("%s %s 的 5h 重置时间已过，视为额度已恢复", stage_label, email)
+                    else:
+                        p_remain = 100 - lq.get("primary_pct", 0)
+                        if p_remain < threshold:
+                            logger.info("%s 跳过 %s（历史5h额度 %d%% < %d%%）", stage_label, email, p_remain, threshold)
+                            return "quota_skip"
                 else:
-                    p_remain = 100 - lq.get("primary_pct", 0)
-                    if p_remain < threshold:
-                        logger.info("%s 跳过 %s（历史额度 %d%% < %d%%）", stage_label, email, p_remain, threshold)
-                        return "quota_skip"
+                    w_resets = lq.get("weekly_resets_at", 0)
+                    if w_resets and time.time() >= w_resets:
+                        logger.info("%s %s 的周重置时间已过，视为额度已恢复", stage_label, email)
+                    else:
+                        w_remain = 100 - lq.get("weekly_pct", 0)
+                        if w_remain < threshold:
+                            logger.info("%s 跳过 %s（历史周额度 %d%% < %d%%）", stage_label, email, w_remain, threshold)
+                            return "quota_skip"
 
         return "ready"
 
