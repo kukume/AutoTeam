@@ -2196,14 +2196,40 @@ def check_codex_quota(access_token, account_id=None):
         return "auth_error", None
 
     rate_limit = data.get("rate_limit") or {}
-    primary = rate_limit.get("primary_window") or {}
-    secondary = rate_limit.get("secondary_window") or {}
+
+    # 用 limit_window_seconds 区分 5h 窗口和周窗口
+    primary_pct = 0
+    primary_resets_at = 0
+    weekly_pct = 0
+    weekly_resets_at = 0
+    has_primary = False
+    has_weekly = False
+
+    for key in ("primary_window", "secondary_window"):
+        window = rate_limit.get(key) or {}
+        if not window:
+            continue
+        window_seconds = int(window.get("limit_window_seconds", 0) or 0)
+        pct = window.get("used_percent", 0)
+        reset_at = window.get("reset_at", 0)
+        if window_seconds == 604800:
+            # 周窗口
+            weekly_pct = pct
+            weekly_resets_at = reset_at
+            has_weekly = True
+        elif window_seconds == 18000:
+            # 5h 窗口
+            primary_pct = pct
+            primary_resets_at = reset_at
+            has_primary = True
 
     quota_info = {
-        "primary_pct": primary.get("used_percent", 0),
-        "primary_resets_at": primary.get("reset_at", 0),
-        "weekly_pct": secondary.get("used_percent", 0),
-        "weekly_resets_at": secondary.get("reset_at", 0),
+        "primary_pct": primary_pct,
+        "primary_resets_at": primary_resets_at,
+        "weekly_pct": weekly_pct,
+        "weekly_resets_at": weekly_resets_at,
+        "has_primary": has_primary,
+        "has_weekly": has_weekly,
     }
 
     exhausted_info = get_quota_exhausted_info(quota_info, limit_reached=bool(rate_limit.get("limit_reached")))

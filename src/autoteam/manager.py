@@ -735,18 +735,20 @@ def _print_status_table(accounts, quota_cache=None):
         status_text = Text(status_label, style=style)
 
         if qi:
+            has_p = qi.get("has_primary", True)
+            has_w = qi.get("has_weekly", True)
             p_val = 100 - qi.get("primary_pct", 0)
             w_val = 100 - qi.get("weekly_pct", 0)
-            p_pct = Text(f"{p_val}%", style="green" if p_val > 30 else "yellow" if p_val > 0 else "red")
-            w_pct = Text(f"{w_val}%", style="green" if w_val > 30 else "yellow" if w_val > 0 else "red")
+            p_pct = Text(f"{p_val}%", style="green" if p_val > 30 else "yellow" if p_val > 0 else "red") if has_p else Text("-", style="dim")
+            w_pct = Text(f"{w_val}%", style="green" if w_val > 30 else "yellow" if w_val > 0 else "red") if has_w else Text("-", style="dim")
             p_reset = (
                 time.strftime("%m-%d %H:%M", time.localtime(qi["primary_resets_at"]))
-                if qi.get("primary_resets_at")
+                if has_p and qi.get("primary_resets_at")
                 else "-"
             )
             w_reset = (
                 time.strftime("%m-%d %H:%M", time.localtime(qi["weekly_resets_at"]))
-                if qi.get("weekly_resets_at")
+                if has_w and qi.get("weekly_resets_at")
                 else "-"
             )
         else:
@@ -989,6 +991,8 @@ def cmd_check(force_auth_repair=False, preserve_low_active=False, preserved_low_
 
             if status_str == "ok":
                 if isinstance(info, dict):
+                    has_primary = info.get("has_primary", True)
+                    has_weekly = info.get("has_weekly", True)
                     p_remain = 100 - info.get("primary_pct", 0)
                     w_remain = 100 - info.get("weekly_pct", 0)
                     p_reset = info.get("primary_resets_at", 0)
@@ -997,8 +1001,8 @@ def cmd_check(force_auth_repair=False, preserve_low_active=False, preserved_low_
                     w_time = time.strftime("%m-%d %H:%M", time.localtime(w_reset)) if w_reset else "?"
                     # 保存最新额度快照，供 status 离线展示
                     update_account(email, last_quota=info)
-                    # 低于阈值视为用完
-                    if p_remain < threshold:
+                    # 低于阈值视为用完（仅有 5h 窗口时检查）
+                    if has_primary and p_remain < threshold:
                         if preserve_low_active and not was_auth_pending:
                             if preserved_low_accounts is not None:
                                 preserved_low_accounts.append(
@@ -1031,23 +1035,27 @@ def cmd_check(force_auth_repair=False, preserve_low_active=False, preserved_low_
                         _auth_repair_reset(email)
                         if was_auth_pending:
                             update_account(email, status=STATUS_ACTIVE, last_active_at=time.time())
-                            logger.info(
-                                "[%s] 认证已恢复 - 5h剩余: %d%% (重置 %s) | 周剩余: %d%% (重置 %s)",
-                                email,
-                                p_remain,
-                                p_time,
-                                w_remain,
-                                w_time,
-                            )
+                            if has_primary:
+                                logger.info(
+                                    "[%s] 认证已恢复 - 5h剩余: %d%% (重置 %s) | 周剩余: %d%% (重置 %s)",
+                                    email, p_remain, p_time, w_remain, w_time,
+                                )
+                            else:
+                                logger.info(
+                                    "[%s] 认证已恢复 - 周剩余: %d%% (重置 %s)",
+                                    email, w_remain, w_time,
+                                )
                             continue
-                        logger.info(
-                            "[%s] 额度可用 - 5h剩余: %d%% (重置 %s) | 周剩余: %d%% (重置 %s)",
-                            email,
-                            p_remain,
-                            p_time,
-                            w_remain,
-                            w_time,
-                        )
+                        if has_primary:
+                            logger.info(
+                                "[%s] 额度可用 - 5h剩余: %d%% (重置 %s) | 周剩余: %d%% (重置 %s)",
+                                email, p_remain, p_time, w_remain, w_time,
+                            )
+                        else:
+                            logger.info(
+                                "[%s] 额度可用 - 周剩余: %d%% (重置 %s)",
+                                email, w_remain, w_time,
+                            )
                 else:
                     _auth_repair_reset(email)
                     logger.info("[%s] 额度可用", email)

@@ -366,6 +366,8 @@ watch(
 function quota(acc, type) {
   const qi = props.status?.quota_cache?.[acc.email] || acc.last_quota
   if (!qi) return null
+  if (type === 'primary' && qi.has_primary === false) return null
+  if (type === 'weekly' && qi.has_weekly === false) return null
   const pct = type === 'primary' ? qi.primary_pct : qi.weekly_pct
   return 100 - (pct || 0)
 }
@@ -378,6 +380,8 @@ function quotaPct(acc, type) {
 function quotaReset(acc, type) {
   const qi = props.status?.quota_cache?.[acc.email] || acc.last_quota
   if (!qi) return '-'
+  if (type === 'primary' && qi.has_primary === false) return '-'
+  if (type === 'weekly' && qi.has_weekly === false) return '-'
   const ts = type === 'primary' ? qi.primary_resets_at : qi.weekly_resets_at
   if (!ts) return '-'
   const d = new Date(ts * 1000)
