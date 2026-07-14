@@ -257,7 +257,6 @@
     <Settings
       v-else-if="visualCategory === 'admin'"
       :admin-status="adminStatus"
-      :codex-status="codexStatus"
       section="admin"
       @refresh="$emit('refresh')"
       @admin-progress="$emit('admin-progress')"
@@ -266,7 +265,6 @@
     <Settings
       v-else-if="visualCategory === 'auto-check'"
       :admin-status="adminStatus"
-      :codex-status="codexStatus"
       section="auto-check"
       @refresh="$emit('refresh')"
       @admin-progress="$emit('admin-progress')"
@@ -281,10 +279,6 @@ import Settings from './Settings.vue'
 
 defineProps({
   adminStatus: {
-    type: Object,
-    default: null,
-  },
-  codexStatus: {
     type: Object,
     default: null,
   },

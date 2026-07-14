@@ -148,7 +148,6 @@ def get_admin_state_summary():
     return {
         "configured": bool(state.get("session_token") and state.get("account_id")),
         "email": state.get("email", ""),
-        "account_id": state.get("account_id", ""),
         "workspace_name": state.get("workspace_name", ""),
         "session_present": bool(state.get("session_token")),
         "password_saved": bool(state.get("password")),

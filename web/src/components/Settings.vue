@@ -30,10 +30,6 @@
           <div class="font-mono text-white break-all">{{ props.adminStatus?.email || '-' }}</div>
         </div>
         <div class="px-3 py-3 bg-gray-800/60 border border-gray-800 rounded-lg">
-          <div class="text-gray-500 mb-1">Workspace ID</div>
-          <div class="font-mono text-white break-all">{{ props.adminStatus?.account_id || '-' }}</div>
-        </div>
-        <div class="px-3 py-3 bg-gray-800/60 border border-gray-800 rounded-lg md:col-span-2">
           <div class="text-gray-500 mb-1">Workspace 名称</div>
           <div class="text-white">{{ props.adminStatus?.workspace_name || '未识别' }}</div>
         </div>
@@ -159,29 +155,8 @@
 
         <div v-else-if="!codexBusy" class="flex flex-wrap gap-3">
           <button
-            @click="loginMainCodex"
-            :disabled="submitting || syncingMain || deletingMainRemoteFiles"
-            class="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white text-sm rounded-lg transition disabled:opacity-50"
-          >
-            {{ syncingMain && mainCodexSubmittingAction === 'login' ? '登录中...' : '登录主号 Codex' }}
-          </button>
-          <button
-            @click="syncMainCodex"
-            :disabled="submitting || syncingMain || deletingMainRemoteFiles"
-            class="px-4 py-2 bg-cyan-700 hover:bg-cyan-600 text-white text-sm rounded-lg transition disabled:opacity-50"
-          >
-            {{ syncingMain && mainCodexSubmittingAction === 'sync' ? '同步中...' : '同步主号 Codex 到已启用远端' }}
-          </button>
-          <button
-            @click="deleteMainCodexFromRemoteFiles"
-            :disabled="submitting || syncingMain || deletingMainRemoteFiles"
-            class="px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white text-sm rounded-lg transition disabled:opacity-50"
-          >
-            {{ deletingMainRemoteFiles ? '删除中...' : '从已启用远端删除主号文件' }}
-          </button>
-          <button
             @click="logoutAdmin"
-            :disabled="submitting || syncingMain || deletingMainRemoteFiles"
+            :disabled="submitting"
             class="px-4 py-2 bg-rose-700/80 hover:bg-rose-700 text-white text-sm rounded-lg transition disabled:opacity-50"
           >
             {{ submitting ? '处理中...' : '清除登录态' }}
@@ -273,62 +248,6 @@
         </div>
       </div>
 
-      <div v-if="codexBusy" class="mt-4 space-y-4 border-t border-gray-800 pt-4">
-        <div class="text-sm text-gray-300">
-          主号 Codex{{ codexActionLabel }}继续中
-        </div>
-
-        <div v-if="props.codexStatus?.step === 'password_required'" class="flex flex-col sm:flex-row gap-3">
-          <input
-            v-model="codexPassword"
-            type="password"
-            autocomplete="current-password"
-            placeholder="输入主号密码"
-            :disabled="syncingMain"
-            class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-          />
-          <button
-            @click="submitMainCodexPassword"
-            :disabled="syncingMain || !codexPassword"
-            class="px-4 py-2 bg-cyan-700 hover:bg-cyan-600 text-white text-sm rounded-lg transition disabled:opacity-50"
-          >
-            {{ syncingMain ? '提交中...' : '提交密码' }}
-          </button>
-        </div>
-
-        <div v-else-if="props.codexStatus?.step === 'code_required'" class="flex flex-col sm:flex-row gap-3">
-          <input
-            v-model.trim="codexCode"
-            type="text"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            placeholder="输入主号 Codex 验证码"
-            :disabled="syncingMain"
-            class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-          />
-          <button
-            @click="submitMainCodexCode"
-            :disabled="syncingMain || !codexCode"
-            class="px-4 py-2 bg-cyan-700 hover:bg-cyan-600 text-white text-sm rounded-lg transition disabled:opacity-50"
-          >
-            {{ syncingMain ? '提交中...' : '提交验证码' }}
-          </button>
-        </div>
-
-        <div v-if="syncingMain && codexSubmittingHint" class="text-xs text-cyan-300">
-          {{ codexSubmittingHint }}
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            @click="cancelMainCodexSync"
-            :disabled="syncingMain"
-            class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm text-gray-200 rounded-lg border border-gray-700 transition disabled:opacity-50"
-          >
-            取消主号 Codex 登录
-          </button>
-        </div>
-      </div>
     </div>
 
     <div v-if="showAutoCheckSection" class="glass-card p-5">
@@ -408,10 +327,6 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-  codexStatus: {
-    type: Object,
-    default: null,
-  },
   section: {
     type: String,
     default: 'all',
@@ -431,21 +346,13 @@ const password = ref('')
 const code = ref('')
 const workspaceOptionId = ref('')
 const loginEmail = ref('')
-const codexPassword = ref('')
-const codexCode = ref('')
 const submitting = ref(false)
-const syncingMain = ref(false)
-const mainCodexSubmittingAction = ref('')
-const deletingMainRemoteFiles = ref(false)
 const message = ref('')
 const messageClass = ref('')
 const adminSubmittingHint = ref('')
-const codexSubmittingHint = ref('')
 
 const adminConfigured = computed(() => !!props.adminStatus?.configured)
 const adminBusy = computed(() => !!props.adminStatus?.login_in_progress)
-const codexBusy = computed(() => !!props.codexStatus?.in_progress)
-const codexActionLabel = computed(() => props.codexStatus?.action === 'sync' ? '同步' : '登录')
 const showAdminSection = computed(() => props.section !== 'auto-check')
 const showAutoCheckSection = computed(() => props.section !== 'admin')
 
@@ -466,18 +373,6 @@ watch(
     if (next?.login_step === 'workspace_required' && !workspaceOptionId.value) {
       const preferred = next?.workspace_options?.find(opt => opt.kind === 'preferred')
       workspaceOptionId.value = preferred?.id || next?.workspace_options?.[0]?.id || ''
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  () => props.codexStatus,
-  (next) => {
-    if (!next?.in_progress) {
-      codexPassword.value = ''
-      codexCode.value = ''
-      codexSubmittingHint.value = ''
     }
   },
   { immediate: true },
@@ -619,100 +514,6 @@ async function logoutAdmin() {
     setMessage(e.message, 'error')
   } finally {
     submitting.value = false
-  }
-}
-
-async function loginMainCodex() {
-  syncingMain.value = true
-  mainCodexSubmittingAction.value = 'login'
-  codexSubmittingHint.value = '正在打开主号 Codex 登录页...'
-  try {
-    const result = await api.startMainCodexLogin()
-    setMessage(result.status === 'completed' ? (result.message || '主号 Codex 已登录') : '主号 Codex 登录进入下一步')
-    emit('admin-progress')
-  } catch (e) {
-    setMessage(e.message, 'error')
-  } finally {
-    syncingMain.value = false
-    mainCodexSubmittingAction.value = ''
-    codexSubmittingHint.value = ''
-  }
-}
-
-async function syncMainCodex() {
-  syncingMain.value = true
-  mainCodexSubmittingAction.value = 'sync'
-  codexSubmittingHint.value = '正在打开主号 Codex 登录页...'
-  try {
-    const result = await api.startMainCodexSync()
-    setMessage(result.status === 'completed' ? (result.message || '主号 Codex 已同步') : '主号 Codex 登录进入下一步')
-    emit('admin-progress')
-  } catch (e) {
-    setMessage(e.message, 'error')
-  } finally {
-    syncingMain.value = false
-    mainCodexSubmittingAction.value = ''
-    codexSubmittingHint.value = ''
-  }
-}
-
-async function submitMainCodexPassword() {
-  syncingMain.value = true
-  mainCodexSubmittingAction.value = props.codexStatus?.action || 'login'
-  codexSubmittingHint.value = '密码已提交，正在等待主号 Codex 登录页响应...'
-  try {
-    const result = await api.submitMainCodexPassword(codexPassword.value)
-    setMessage(result.status === 'completed' ? (result.message || '主号 Codex 已同步') : '主号 Codex 密码已提交')
-    emit('admin-progress')
-  } catch (e) {
-    setMessage(e.message, 'error')
-  } finally {
-    syncingMain.value = false
-    mainCodexSubmittingAction.value = ''
-    codexSubmittingHint.value = ''
-  }
-}
-
-async function submitMainCodexCode() {
-  syncingMain.value = true
-  mainCodexSubmittingAction.value = props.codexStatus?.action || 'login'
-  codexSubmittingHint.value = '验证码已提交，正在等待主号 Codex 登录页响应，通常需要 5 到 10 秒...'
-  try {
-    const result = await api.submitMainCodexCode(codexCode.value)
-    setMessage(result.status === 'completed' ? (result.message || '主号 Codex 已同步') : '主号 Codex 验证码已提交')
-    emit('admin-progress')
-  } catch (e) {
-    setMessage(e.message, 'error')
-  } finally {
-    syncingMain.value = false
-    mainCodexSubmittingAction.value = ''
-    codexSubmittingHint.value = ''
-  }
-}
-
-async function cancelMainCodexSync() {
-  syncingMain.value = true
-  try {
-    await api.cancelMainCodexSync()
-    setMessage('主号 Codex 登录已取消')
-    emit('refresh')
-  } catch (e) {
-    setMessage(e.message, 'error')
-  } finally {
-    syncingMain.value = false
-  }
-}
-
-async function deleteMainCodexFromRemoteFiles() {
-  deletingMainRemoteFiles.value = true
-  try {
-    const result = await api.deleteMainCodexFromRemoteFiles()
-    setMessage(result.message || '已从已启用远端删除主号文件')
-    emit('refresh')
-  } catch (e) {
-    setMessage(e.message, 'error')
-  } finally {
-    deletingMainRemoteFiles.value = false
   }
 }
 

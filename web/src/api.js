@@ -45,7 +45,6 @@ export const api = {
 
   getStatus: () => request('GET', '/status'),
   getAdminStatus: () => request('GET', '/admin/status'),
-  getMainCodexStatus: () => request('GET', '/main-codex/status'),
   getManualAccountStatus: () => request('GET', '/manual-account/status'),
   getAccounts: () => request('GET', '/accounts'),
   getActiveAccounts: () => request('GET', '/accounts/active'),
@@ -71,12 +70,6 @@ export const api = {
   submitAdminWorkspace: (optionId) => request('POST', '/admin/login/workspace', { option_id: optionId }),
   cancelAdminLogin: () => request('POST', '/admin/login/cancel'),
   logoutAdmin: () => request('POST', '/admin/logout'),
-  startMainCodexLogin: () => request('POST', '/main-codex/login'),
-  startMainCodexSync: () => request('POST', '/main-codex/start'),
-  submitMainCodexPassword: (password) => request('POST', '/main-codex/password', { password }),
-  submitMainCodexCode: (code) => request('POST', '/main-codex/code', { code }),
-  cancelMainCodexSync: () => request('POST', '/main-codex/cancel'),
-  deleteMainCodexFromRemoteFiles: () => request('POST', '/main-codex/delete-remote-files'),
   startManualAccount: () => request('POST', '/manual-account/start'),
   submitManualAccountCallback: (redirectUrl) => request('POST', '/manual-account/callback', { redirect_url: redirectUrl }),
   cancelManualAccount: () => request('POST', '/manual-account/cancel'),
@@ -84,7 +77,6 @@ export const api = {
   postSync: () => request('POST', '/sync'),
   postSyncFromCpa: () => request('POST', '/sync/from-cpa'),
   postSyncAccounts: () => request('POST', '/sync/accounts'),
-  postSyncMainCodex: () => request('POST', '/sync/main-codex'),
 
   startRotate: (target = 5) => request('POST', '/tasks/rotate', { target }),
   startCheck: () => request('POST', '/tasks/check'),

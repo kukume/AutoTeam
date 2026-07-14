@@ -127,7 +127,6 @@
         <ConfigPage
           v-else-if="currentPage === 'config'"
           :admin-status="adminStatus"
-          :codex-status="codexStatus"
           @refresh="onConfigRefresh"
           @admin-progress="onAdminProgress"
         />
@@ -181,7 +180,6 @@ const currentPage = ref(pageFromPath())
 
 const status = ref(null)
 const adminStatus = ref(null)
-const codexStatus = ref(null)
 const manualAccountStatus = ref(null)
 const tasks = ref([])
 const loading = ref(false)
@@ -189,9 +187,6 @@ const runningTask = ref(null)
 const busyTask = computed(() => {
   if (adminStatus.value?.login_in_progress) {
     return { command: 'admin-login' }
-  }
-  if (codexStatus.value?.in_progress) {
-    return { command: 'main-codex-sync' }
   }
   return runningTask.value
 })
@@ -257,18 +252,28 @@ function doLogout() {
 async function refreshDynamic() {
   const page = currentPage.value
   const fetches = []
-  if (PAGES_WITH_TASKS.has(page)) fetches.push(api.getTasks())
-  if (PAGES_WITH_STATUS.has(page)) fetches.push(api.getStatus())
+  const fetchFns = []
+  if (PAGES_WITH_TASKS.has(page)) { fetches.push(api.getTasks()); fetchFns.push('tasks') }
+  if (PAGES_WITH_STATUS.has(page)) { fetches.push(api.getStatus()); fetchFns.push('status') }
+  if (page === 'config') {
+    fetches.push(api.getAdminStatus()); fetchFns.push('admin')
+  }
   if (fetches.length === 0) return
   try {
     const results = await Promise.all(fetches)
     let idx = 0
-    if (PAGES_WITH_TASKS.has(page)) {
-      tasks.value = results[idx++]
+    if (fetchFns[idx] === 'tasks') {
+      tasks.value = results[idx]
       runningTask.value = tasks.value.find(t => t.status === 'running' || t.status === 'pending') || null
+      idx++
     }
-    if (PAGES_WITH_STATUS.has(page)) {
-      status.value = results[idx++]
+    if (fetchFns[idx] === 'status') {
+      status.value = results[idx]
+      idx++
+    }
+    if (fetchFns[idx] === 'admin') {
+      adminStatus.value = results[idx]
+      idx++
     }
   } catch (e) {
     if (e.status === 401) { authenticated.value = false; return }
@@ -280,10 +285,6 @@ async function refreshAdmin() {
   try { adminStatus.value = await api.getAdminStatus() } catch (e) { if (e.status === 401) authenticated.value = false }
 }
 
-async function refreshCodex() {
-  try { codexStatus.value = await api.getMainCodexStatus() } catch (e) { if (e.status === 401) authenticated.value = false }
-}
-
 async function refreshManual() {
   try { manualAccountStatus.value = await api.getManualAccountStatus() } catch (e) { if (e.status === 401) authenticated.value = false }
 }
@@ -291,17 +292,15 @@ async function refreshManual() {
 async function refreshAll() {
   loading.value = true
   try {
-    const [s, t, admin, codex, manualAccount] = await Promise.all([
+    const [s, t, admin, manualAccount] = await Promise.all([
       api.getStatus(),
       api.getTasks(),
       api.getAdminStatus(),
-      api.getMainCodexStatus(),
       api.getManualAccountStatus(),
     ])
     status.value = s
     tasks.value = t
     adminStatus.value = admin
-    codexStatus.value = codex
     manualAccountStatus.value = manualAccount
     runningTask.value = t.find(t => t.status === 'running' || t.status === 'pending') || null
   } catch (e) {
@@ -330,12 +329,10 @@ function onPopState() {
 
 function onAdminProgress() {
   refreshAdmin()
-  refreshCodex()
 }
 
 function onConfigRefresh() {
   refreshAdmin()
-  refreshCodex()
   refreshDynamic()
 }
 

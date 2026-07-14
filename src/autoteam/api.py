@@ -830,9 +830,6 @@ _playwright_lock = threading.Lock()
 _current_task_id: str | None = None
 _admin_login_api = None
 _admin_login_step: str | None = None
-_main_codex_flow = None
-_main_codex_step: str | None = None
-_main_codex_action: str | None = None
 _manual_account_flow = None
 MAX_TASK_HISTORY = 50
 _TASK_TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
@@ -969,16 +966,6 @@ def _current_busy_detail(default_message: str):
             "running_task": {
                 "task_id": "admin-login",
                 "command": "admin-login",
-                "started_at": None,
-            },
-        }
-
-    if _main_codex_flow:
-        return {
-            "message": default_message,
-            "running_task": {
-                "task_id": "main-codex-sync",
-                "command": "main-codex-sync",
                 "started_at": None,
             },
         }
@@ -1185,14 +1172,6 @@ def _admin_status():
     return status
 
 
-def _main_codex_status():
-    return {
-        "in_progress": _main_codex_flow is not None,
-        "step": _main_codex_step,
-        "action": _main_codex_action,
-    }
-
-
 def _manual_account_status():
     status = {
         "in_progress": False,
@@ -1229,7 +1208,7 @@ def _finish_admin_login(completed: dict):
         _admin_login_step = None
         if _playwright_lock.locked():
             _playwright_lock.release()
-    return {"status": "completed", "admin": _admin_status(), "codex": _main_codex_status(), "info": info}
+    return {"status": "completed", "admin": _admin_status(), "info": info}
 
 
 def _set_pending_admin_login(api, step):
@@ -1237,61 +1216,6 @@ def _set_pending_admin_login(api, step):
     _admin_login_api = api
     _admin_login_step = step
     return {"status": step, "admin": _admin_status()}
-
-
-def _finish_main_codex_flow():
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-    flow = _main_codex_flow
-    action = _main_codex_action or "sync"
-    try:
-        info = _pw_executor.run(flow.complete)
-    finally:
-        if flow:
-            try:
-                _pw_executor.run(flow.stop)
-            except Exception:
-                pass
-        _main_codex_flow = None
-        _main_codex_step = None
-        _main_codex_action = None
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-
-    message = "主号 Codex 已同步到已启用远端" if action == "sync" else "主号 Codex 已登录"
-    return {
-        "status": "completed",
-        "message": message,
-        "codex": _main_codex_status(),
-        "info": info,
-    }
-
-
-def _set_pending_main_codex_flow(flow, step, action):
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-    _main_codex_flow = flow
-    _main_codex_step = step
-    _main_codex_action = action
-    return {"status": step, "codex": _main_codex_status()}
-
-
-def _start_main_codex_flow(action="sync"):
-    from autoteam.codex_auth import MainCodexLoginFlow, MainCodexSyncFlow
-
-    flow_cls = MainCodexSyncFlow if action == "sync" else MainCodexLoginFlow
-
-    def _do_start():
-        return _run_playwright_start(flow_cls, lambda flow: flow.start())
-
-    flow, result = _pw_executor.run(_do_start)
-    step = result["step"]
-    if step == "completed":
-        _set_pending_main_codex_flow(flow, step, action)
-        return step, _finish_main_codex_flow()
-    if step in ("password_required", "code_required"):
-        return step, _set_pending_main_codex_flow(flow, step, action)
-
-    _pw_executor.run(flow.stop)
-    raise RuntimeError(result.get("detail") or "无法识别主号 Codex 登录步骤")
 
 
 def _finish_manual_account_flow(result: dict):
@@ -1313,12 +1237,6 @@ def _set_pending_manual_account_flow(flow, result):
 def get_admin_status():
     """获取管理员登录状态。"""
     return _admin_status()
-
-
-@app.get("/api/main-codex/status")
-def get_main_codex_status():
-    """获取主号 Codex 同步状态。"""
-    return _main_codex_status()
 
 
 @app.get("/api/manual-account/status")
@@ -1541,216 +1459,6 @@ def post_admin_logout():
         post_admin_login_cancel()
     clear_admin_state()
     return {"message": "管理员登录态已清除", "admin": _admin_status()}
-
-
-@app.post("/api/main-codex/start")
-def post_main_codex_start():
-    """开始主号 Codex 登录并同步到已启用远端。"""
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-
-    if _main_codex_flow:
-        try:
-            _pw_executor.run(_main_codex_flow.stop)
-        except Exception:
-            pass
-        _main_codex_flow = None
-        _main_codex_step = None
-        _main_codex_action = None
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-
-    _require_sync_target_configs("同步主号 Codex")
-
-    from autoteam.codex_auth import get_saved_main_auth_file
-    from autoteam.sync_targets import sync_main_codex_to_configured_targets
-
-    saved_auth_file = get_saved_main_auth_file()
-    if saved_auth_file:
-        sync_main_codex_to_configured_targets(saved_auth_file)
-        return {
-            "status": "completed",
-            "message": "主号 Codex 已同步到已启用远端",
-            "codex": _main_codex_status(),
-            "info": {"auth_file": saved_auth_file},
-        }
-
-    if not _playwright_lock.acquire(blocking=False):
-        raise HTTPException(
-            status_code=409, detail=_current_busy_detail("有任务正在执行，请等待完成后再同步主号 Codex")
-        )
-
-    try:
-        _step, result = _start_main_codex_flow(action="sync")
-        return result
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.post("/api/main-codex/login")
-def post_main_codex_login():
-    """开始主号 Codex 登录，仅保存本地认证文件。"""
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-
-    if _main_codex_flow:
-        try:
-            _pw_executor.run(_main_codex_flow.stop)
-        except Exception:
-            pass
-        _main_codex_flow = None
-        _main_codex_step = None
-        _main_codex_action = None
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-
-    if not _playwright_lock.acquire(blocking=False):
-        raise HTTPException(
-            status_code=409, detail=_current_busy_detail("有任务正在执行，请等待完成后再登录主号 Codex")
-        )
-
-    try:
-        _step, result = _start_main_codex_flow(action="login")
-        return result
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.post("/api/main-codex/password")
-def post_main_codex_password(params: AdminPasswordParams):
-    """提交主号 Codex 登录密码。"""
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-    if not _main_codex_flow or _main_codex_step != "password_required":
-        raise HTTPException(status_code=409, detail="当前没有等待密码的主号 Codex 登录流程")
-
-    try:
-        result = _pw_executor.run(_main_codex_flow.submit_password, params.password)
-        step = result["step"]
-        if step == "completed":
-            return _finish_main_codex_flow()
-        if step in ("password_required", "code_required"):
-            _main_codex_step = step
-            return {"status": step, "codex": _main_codex_status()}
-        raise HTTPException(status_code=400, detail=result.get("detail") or "主号 Codex 密码登录失败")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        try:
-            _pw_executor.run(_main_codex_flow.stop)
-        except Exception:
-            pass
-        _main_codex_flow = None
-        _main_codex_step = None
-        _main_codex_action = None
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.post("/api/main-codex/code")
-def post_main_codex_code(params: AdminCodeParams):
-    """提交主号 Codex 登录验证码。"""
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-    if not _main_codex_flow or _main_codex_step != "code_required":
-        raise HTTPException(status_code=409, detail="当前没有等待验证码的主号 Codex 登录流程")
-
-    try:
-        result = _pw_executor.run(_main_codex_flow.submit_code, params.code.strip())
-        step = result["step"]
-        if step == "completed":
-            return _finish_main_codex_flow()
-        if step in ("password_required", "code_required"):
-            _main_codex_step = step
-            return {"status": step, "codex": _main_codex_status()}
-        raise HTTPException(status_code=400, detail=result.get("detail") or "主号 Codex 验证码登录失败")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        try:
-            _pw_executor.run(_main_codex_flow.stop)
-        except Exception:
-            pass
-        _main_codex_flow = None
-        _main_codex_step = None
-        _main_codex_action = None
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.post("/api/main-codex/cancel")
-def post_main_codex_cancel():
-    """取消主号 Codex 登录流程。"""
-    global _main_codex_flow, _main_codex_step, _main_codex_action
-    if _main_codex_flow:
-        try:
-            _pw_executor.run(_main_codex_flow.stop)
-        except Exception:
-            pass
-        _main_codex_flow = None
-        _main_codex_step = None
-        _main_codex_action = None
-        if _playwright_lock.locked():
-            _playwright_lock.release()
-    return {"message": "主号 Codex 登录已取消", "codex": _main_codex_status()}
-
-
-def _delete_main_codex_from_enabled_targets():
-    from autoteam.sync_targets import (
-        delete_main_codex_from_configured_targets,
-        describe_sync_targets,
-        get_enabled_sync_targets,
-    )
-
-    _require_sync_target_configs("删除主号 Codex 远端文件")
-
-    env = _current_runtime_env()
-    enabled_targets = get_enabled_sync_targets(env)
-    results = delete_main_codex_from_configured_targets()
-    deleted: list[str] = []
-    total_count = 0
-    failed_targets: list[str] = []
-
-    for target in enabled_targets:
-        target_result = results.get(target) or {}
-        target_deleted = [str(item) for item in (target_result.get("deleted") or [])]
-        deleted.extend(target_deleted)
-        if str(target_result.get("error") or "").strip():
-            failed_targets.append(target)
-
-        try:
-            target_count = int(target_result.get("count", len(target_deleted)) or 0)
-        except (TypeError, ValueError):
-            target_count = len(target_deleted)
-        total_count += target_count
-
-    target_label = describe_sync_targets(enabled_targets)
-    message = f"已从 {target_label} 删除 {total_count} 个主号认证文件"
-    if failed_targets:
-        message += f"（{describe_sync_targets(failed_targets)} 清理失败，详情见 results）"
-    return {
-        "message": message,
-        "deleted": deleted,
-        "results": results,
-    }
-
-
-@app.post("/api/main-codex/delete-remote-files")
-def post_main_codex_delete_remote_files():
-    """删除已启用远端中已上传的主号 Codex 认证文件。"""
-    return _delete_main_codex_from_enabled_targets()
-
-
-@app.post("/api/main-codex/delete-cpa")
-def post_main_codex_delete_cpa():
-    """兼容旧接口：删除已启用远端中的主号 Codex 认证文件。"""
-    return _delete_main_codex_from_enabled_targets()
 
 
 @app.post("/api/manual-account/start")
@@ -2560,12 +2268,6 @@ def get_logs(limit: int = 100, since: float = 0):
     else:
         entries = _log_buffer[-limit:]
     return {"logs": entries, "total": len(_log_buffer)}
-
-
-@app.post("/api/sync/main-codex")
-def post_sync_main_codex():
-    """兼容旧接口：开始主号 Codex 登录并同步到已启用远端。"""
-    return post_main_codex_start()
 
 
 @app.get("/api/cpa/files")
